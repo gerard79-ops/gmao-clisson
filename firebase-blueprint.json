@@ -1,0 +1,71 @@
+{
+  "version": "1.0",
+  "collections": {
+    "settings": {
+      "rules": {
+        "read": "true",
+        "write": "true"
+      }
+    },
+    "equipements": {
+      "rules": {
+        "read": "true",
+        "write": "true"
+      }
+    },
+    "interventions": {
+      "rules": {
+        "read": "true",
+        "write": "true"
+      }
+    },
+    "pieces": {
+      "rules": {
+        "read": "true",
+        "write": "true"
+      }
+    },
+    "mouvements": {
+      "rules": {
+        "read": "true",
+        "write": "true"
+      }
+    },
+    "gammes": {
+      "rules": {
+        "read": "true",
+        "write": "true"
+      }
+    },
+    "compteurs": {
+      "rules": {
+        "read": "true",
+        "write": "true"
+      }
+    },
+    "suppliers": {
+      "rules": {
+        "read": "true",
+        "write": "true"
+      }
+    },
+    "commandes": {
+      "rules": {
+        "read": "true",
+        "write": "true"
+      }
+    },
+    "documents": {
+      "rules": {
+        "read": "true",
+        "write": "true"
+      }
+    },
+    "budgets": {
+      "rules": {
+        "read": "true",
+        "write": "true"
+      }
+    }
+  }
+}

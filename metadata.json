@@ -1,0 +1,6 @@
+{
+  "name": "GMAO PRO",
+  "description": "Système moderne de Gestion de Maintenance Assistée par Ordinateur (GMAO) professionnel avec tableau de bord, parc machines, magasin, planning préventif et portail terrain.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
