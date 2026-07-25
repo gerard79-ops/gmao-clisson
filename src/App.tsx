@@ -74,6 +74,7 @@ import Login from './components/Login';
 
 // Firebase Auth
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
 import { auth } from './firebase';
 
 // Icons
@@ -226,6 +227,7 @@ const MODULE_HELP_DATA: Record<string, { title: string; desc: string; features: 
 export default function App() {
   // Database States
   const [db, setDb] = useState(loadDatabase());
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<string>(new Date().toLocaleTimeString('fr-FR'));
@@ -291,22 +293,37 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      setAuthUser(user);
-      setAuthLoading(false);
-      if (user) {
-        if (user.email === 'admin@gmaopro.com') {
-          setUserRole('Manager');
-          localStorage.setItem('gmaopro_role', 'Manager');
-        } else if (user.email === 'tech1@gmaopro.com') {
-          setUserRole('Technicien');
-          localStorage.setItem('gmaopro_role', 'Technicien');
-        }
-      }
-    });
-    return () => unsubscribeAuth();
-  }, []);
+ useEffect(() => {
+  const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    setAuthUser(user);
+    setAuthLoading(false);
+  });
+  return () => unsubscribeAuth();
+}, []);
+
+// Dérive le rôle réel depuis la fiche Firestore du collaborateur connecté
+useEffect(() => {
+  if (!authUser) return;
+  const profile = (db.utilisateurs || []).find(
+    (u) => u.id === authUser.uid || u.email === authUser.email
+  );
+  if (profile) {
+    const mapped: 'Technicien' | 'Manager' =
+      profile.role === 'Administrateur' || profile.role === "Chef d'Équipe"
+        ? 'Manager'
+        : 'Technicien';
+    setUserRole(mapped);
+    localStorage.setItem('gmaopro_role', mapped);
+    setMustChangePassword(profile.mustChangePassword === true);
+  } else if (authUser.email === 'admin@gmaopro.com') {
+    setUserRole('Manager');
+    localStorage.setItem('gmaopro_role', 'Manager');
+  }
+}, [authUser, db.utilisateurs]);
+
+const isRealAdmin = (db.utilisateurs || []).some(
+  (u) => (u.id === authUser?.uid || u.email === authUser?.email) && u.role === 'Administrateur'
+);
 
   // Simple Role Management (Technicien vs Manager)
   const [userRole, setUserRole] = useState<'Technicien' | 'Manager'>(() => {
@@ -519,8 +536,9 @@ export default function App() {
   const [interventionFilter, setInterventionFilter] = useState<string | null>(null);
   const [pieceFilter, setPieceFilter] = useState<string | null>(null);
 
-  // 1. Setup Firestore Check, Seeding, and Real-time subscription
+// 1. Setup Firestore Check, Seeding, and Real-time subscription
   useEffect(() => {
+    if (!authUser && !localUser) return; // attend que l'utilisateur soit connecté
     let unsubscribe: (() => void) | null = null;
     checkAndSeedFirestore().then(() => {
       unsubscribe = subscribeToGMAODatabase((updates) => {
@@ -534,7 +552,7 @@ export default function App() {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, []);
+  }, [authUser, localUser]);
 
   // Security log generator helper
   const handleLogAction = useCallback(async (action: string, details: string, criticite: 'faible' | 'moyenne' | 'eleve' = 'faible') => {
@@ -981,6 +999,8 @@ export default function App() {
         'portail-terrain': 't'
       };
 
+	if (!e.key) return; // ignore les événements clavier synthétiques sans touche définie
+
       const shortcuts = db.settings?.shortcuts || defaultShortcuts;
       const pressedKey = e.key.toLowerCase();
 
@@ -1233,6 +1253,15 @@ export default function App() {
     );
   }
 
+  if (mustChangePassword && authUser) {
+    return (
+      <ForcePasswordChangeModal
+        user={authUser}
+        onDone={() => setMustChangePassword(false)}
+      />
+    );
+  }
+
   return (
     <div className={`min-h-screen font-sans bg-primary-100 dark:bg-primary-950 transition-colors duration-300 font-scale-${db.settings.taillePolice} contrast-${db.settings.themeContraste} ${effectiveThemeMode === 'dark' ? 'dark' : ''}`}>
       
@@ -1293,36 +1322,6 @@ export default function App() {
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Role Manager vs Technicien Switcher */}
-            <div className="flex items-center bg-primary-100/50 dark:bg-primary-950/50 p-1 rounded-xl border border-primary-200 dark:border-primary-800 gap-1">
-              <button
-                type="button"
-                id="role-select-technicien"
-                onClick={() => handleRoleChange('Technicien')}
-                className={`px-3 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition duration-250 flex items-center gap-1 cursor-pointer ${
-                  userRole === 'Technicien'
-                    ? 'bg-amber-500 text-white shadow-sm font-black'
-                    : 'text-primary-500 hover:text-primary-800 dark:hover:text-primary-200 font-bold'
-                }`}
-              >
-                <Wrench size={11} />
-                Tech
-              </button>
-              <button
-                type="button"
-                id="role-select-manager"
-                onClick={() => handleRoleChange('Manager')}
-                className={`px-3 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition duration-250 flex items-center gap-1 cursor-pointer ${
-                  userRole === 'Manager'
-                    ? 'bg-indigo-600 text-white shadow-sm font-black'
-                    : 'text-primary-500 hover:text-primary-800 dark:hover:text-primary-200 font-bold'
-                }`}
-              >
-                <ShieldCheck size={11} />
-                Manager
-              </button>
             </div>
 
             {/* Quick theme togglers */}
@@ -1580,7 +1579,7 @@ export default function App() {
             </button>
           </div>
 
-          {[
+	  {[
             { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
             { id: 'portail-terrain', label: 'Portail Terrain (Scan QR)', icon: QrCode },
             { id: 'equipements', label: 'Parc Équipements', icon: Wrench },
@@ -1594,7 +1593,7 @@ export default function App() {
             { id: 'administration', label: 'Administration', icon: ShieldCheck },
             { id: 'reglages', label: 'Configuration', icon: SlidersHorizontal },
             { id: 'guide', label: "Mode d'emploi", icon: BookOpen }
-          ].map(m => {
+          ].filter(m => m.id !== 'administration' || isRealAdmin).map(m => {
             const Icon = m.icon;
             const active = activeModule === m.id;
             return (
@@ -1824,7 +1823,7 @@ export default function App() {
                 />
               )}
 
-              {activeModule === 'administration' && (
+              {activeModule === 'administration' && isRealAdmin && (
                 <Administration
                   db={db}
                   userRole={userRole}

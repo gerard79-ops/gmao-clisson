@@ -47,6 +47,7 @@ import {
 import { Utilisateur, Fournisseur, GlobalSettings } from '../types';
 import { GMAODatabase } from '../data';
 import { ModuleHelp } from './ModuleHelp';
+import { auth } from '../firebase';
 
 interface AdministrationProps {
   db: GMAODatabase;
@@ -96,7 +97,9 @@ export default function Administration({
   // Modal states for Users
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<Utilisateur | null>(null);
+  const [isSavingUser, setIsSavingUser] = useState(false);
   const [newUserForm, setNewUserForm] = useState({
+  
     prenom: '',
     nom: '',
     email: '',
@@ -169,32 +172,96 @@ export default function Administration({
   const [purgeTarget, setPurgeTarget] = useState<'faible' | 'moyenne' | 'eleve' | 'all' | null>(null);
 
   // Handle user submit
-  const handleUserSubmit = (e: React.FormEvent) => {
+const getAuthHeaders = async () => {
+    const token = await auth.currentUser?.getIdToken();
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    };
+  };
+
+  const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingUser) {
-      onEditUtilisateur(editingUser.id, {
-        prenom: newUserForm.prenom,
-        nom: newUserForm.nom,
-        email: newUserForm.email,
-        telephone: newUserForm.telephone,
-        role: newUserForm.role,
-        droits: newUserForm.droits
-      });
-      triggerNotification(`Utilisateur ${newUserForm.prenom} ${newUserForm.nom} mis à jour avec succès.`, 'success');
-    } else {
-      onAddUtilisateur({
-        prenom: newUserForm.prenom,
-        nom: newUserForm.nom,
-        email: newUserForm.email,
-        telephone: newUserForm.telephone,
-        role: newUserForm.role,
-        droits: newUserForm.droits
-      });
-      triggerNotification(`Nouvel utilisateur ${newUserForm.prenom} ${newUserForm.nom} enregistré.`, 'success');
+if (isSavingUser) return; // empêche un double envoi
+    setIsSavingUser(true);
+    try {
+      if (editingUser) {
+        const res = await fetch(`/api/admin/users/${editingUser.id}`, {
+          method: 'PUT',
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({
+            prenom: newUserForm.prenom,
+            nom: newUserForm.nom,
+            email: newUserForm.email,
+            telephone: newUserForm.telephone,
+            role: newUserForm.role,
+            droits: newUserForm.droits
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Erreur lors de la mise à jour.");
+        triggerNotification(`Utilisateur ${newUserForm.prenom} ${newUserForm.nom} mis à jour avec succès.`, 'success');
+      } else {
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({
+            prenom: newUserForm.prenom,
+            nom: newUserForm.nom,
+            email: newUserForm.email,
+            telephone: newUserForm.telephone,
+            role: newUserForm.role,
+            droits: newUserForm.droits
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Erreur lors de la création.");
+        triggerNotification(
+          `Compte créé pour ${newUserForm.prenom} ${newUserForm.nom}. Mot de passe temporaire : ${data.tempPassword} (à communiquer, à faire changer dès la première connexion).`,
+          'success'
+        );
+      }
+      setShowUserModal(false);
+      setEditingUser(null);
+      resetUserForm();
+    } catch (err: any) {
+      triggerNotification(err.message || "Une erreur est survenue.", 'warn');
+ } finally {
+      setIsSavingUser(false);
     }
-    setShowUserModal(false);
-    setEditingUser(null);
-    resetUserForm();
+  };
+
+  const handleDeleteUser = async (u: Utilisateur) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement l'utilisateur ${u.prenom} ${u.nom} ?`)) return;
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}`, {
+        method: 'DELETE',
+        headers: await getAuthHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur lors de la suppression.");
+      triggerNotification(`Utilisateur supprimé.`, 'info');
+    } catch (err: any) {
+      triggerNotification(err.message || "Une erreur est survenue lors de la suppression.", 'warn');
+    }
+  };
+
+const handleResetPassword = async (u: Utilisateur) => {
+    if (!confirm(`Réinitialiser le mot de passe de ${u.prenom} ${u.nom} ?`)) return;
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}/reset-password`, {
+        method: 'POST',
+        headers: await getAuthHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur lors de la réinitialisation.");
+      triggerNotification(
+        `Mot de passe réinitialisé pour ${u.prenom} ${u.nom}. Nouveau mot de passe : ${data.newPassword} (à communiquer, à faire changer à la prochaine connexion).`,
+        'success'
+      );
+    } catch (err: any) {
+      triggerNotification(err.message || "Une erreur est survenue.", 'warn');
+    }
   };
 
   const resetUserForm = () => {
@@ -704,13 +771,17 @@ export default function Administration({
                             >
                               <Edit3 size={14} />
                             </button>
-                            <button
-                              onClick={() => {
-                                if (confirm(`Êtes-vous sûr de vouloir supprimer définitivement l'utilisateur ${u.prenom} ${u.nom} ?`)) {
-                                  onDeleteUtilisateur(u.id);
-                                  triggerNotification(`Utilisateur supprimé.`, 'info');
-                                }
-                              }}
+
+			    <button
+                              onClick={() => handleResetPassword(u)}
+                              className="p-1.5 text-primary-400 hover:text-accent-orange hover:bg-accent-orange/10 rounded-lg transition"
+                              title="Réinitialiser le mot de passe"
+                            >
+                              <Key size={14} />
+                            </button>
+
+                           <button
+                              onClick={() => handleDeleteUser(u)}
                               className="p-1.5 text-primary-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition"
                               title="Supprimer l'accès"
                             >
@@ -2092,11 +2163,12 @@ export default function Administration({
                   >
                     Annuler
                   </button>
-                  <button
+                 <button
                     type="submit"
-                    className="px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-bold text-xs rounded-xl"
+                    disabled={isSavingUser}
+                    className="px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-bold text-xs rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Enregistrer le Profil
+                    {isSavingUser ? "Enregistrement..." : "Enregistrer le Profil"}
                   </button>
                 </div>
               </form>

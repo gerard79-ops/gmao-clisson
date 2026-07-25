@@ -193,6 +193,7 @@ export interface Utilisateur {
   email: string;
   telephone?: string;
   role: string;
+  mustChangePassword?: boolean;
   droits: {
     equipements: number;
     interventions: number;

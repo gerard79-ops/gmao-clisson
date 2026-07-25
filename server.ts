@@ -1,11 +1,15 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import { initializeApp, cert, getApps } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: ".env.local" });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -126,6 +130,184 @@ Propose un diagnostic précis en français et suggère les actions correctives i
     });
   }
 });
+
+// // ===================== ADMIN SDK - Gestion des collaborateurs =====================
+
+// Initialise le SDK Admin Firebase à partir du fichier de clé de service
+function initFirebaseAdmin() {
+  if (getApps().length > 0) return;
+  const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+  if (!keyPath || !fs.existsSync(keyPath)) {
+    console.warn(
+      "FIREBASE_SERVICE_ACCOUNT_PATH non défini ou fichier introuvable : les routes d'administration des utilisateurs seront indisponibles."
+    );
+    return;
+  }
+  const serviceAccount = JSON.parse(fs.readFileSync(keyPath, "utf-8"));
+  initializeApp({
+    credential: cert(serviceAccount),
+  });
+  console.log("Firebase Admin SDK initialisé.");
+}
+initFirebaseAdmin();
+
+// Middleware : vérifie que l'appelant est bien connecté ET a le rôle Administrateur
+async function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  try {
+    if (!getApps().length) {
+      return res.status(503).json({ error: "Service d'administration non configuré côté serveur." });
+    }
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) {
+      return res.status(401).json({ error: "Authentification requise." });
+    }
+const decoded = await getAuth().verifyIdToken(token);
+    const profileQuery = await getFirestore()
+      .collection("utilisateurs")
+      .where("email", "==", decoded.email)
+      .limit(1)
+      .get();
+    const profile = profileQuery.empty ? null : profileQuery.docs[0].data();
+    if (!profile || profile.role !== "Administrateur") {
+      return res.status(403).json({ error: "Accès réservé aux administrateurs." });
+    }    
+    next();
+  } catch (err: any) {
+    console.error("Auth check failed:", err);
+    res.status(401).json({ error: "Session invalide, reconnectez-vous." });
+  }
+}
+
+// Créer un collaborateur : vrai compte de connexion + fiche profil Firestore
+app.post("/api/admin/users", requireAdmin, async (req, res) => {
+  try {
+    const { prenom, nom, email, telephone, role, droits, password } = req.body;
+    if (!email || !prenom || !nom || !role) {
+      return res.status(400).json({ error: "Champs requis manquants (prénom, nom, email, rôle)." });
+    }
+    const tempPassword = password || Math.random().toString(36).slice(-10) + "A1!";
+    const userRecord = await getAuth().createUser({
+      email,
+      password: tempPassword,
+      displayName: `${prenom} ${nom}`,
+    });
+    const profile = {
+      id: userRecord.uid,
+      prenom,
+      nom,
+      email,
+      telephone: telephone || "",
+      role,
+      mustChangePassword: true,
+      droits: droits || {
+        equipements: 1,
+        interventions: 1,
+        stock: 1,
+        planning: 1,
+        achats: 0,
+        reporting: 0,
+        parametres: 0,
+      },
+    };
+    await getFirestore().collection("utilisateurs").doc(userRecord.uid).set(profile);
+    res.json({ ...profile, tempPassword });
+  } catch (error: any) {
+    console.error("Create user error:", error);
+    res.status(400).json({ error: error.message || "Erreur lors de la création du compte." });
+  }
+});
+
+// Modifier un collaborateur : profil + éventuellement email / mot de passe / activation
+app.put("/api/admin/users/:uid", requireAdmin, async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { prenom, nom, email, telephone, role, droits, newPassword, disabled } = req.body;
+
+    const authUpdates: any = {};
+    if (email) authUpdates.email = email;
+    if (newPassword) authUpdates.password = newPassword;
+    if (typeof disabled === "boolean") authUpdates.disabled = disabled;
+    if (Object.keys(authUpdates).length > 0) {
+      await getAuth().updateUser(uid, authUpdates);
+    }
+
+    const profileUpdates: Record<string, any> = {};
+    if (prenom !== undefined) profileUpdates.prenom = prenom;
+    if (nom !== undefined) profileUpdates.nom = nom;
+    if (email !== undefined) profileUpdates.email = email;
+    if (telephone !== undefined) profileUpdates.telephone = telephone;
+    if (role !== undefined) profileUpdates.role = role;
+    if (droits !== undefined) profileUpdates.droits = droits;
+
+    if (Object.keys(profileUpdates).length > 0) {
+      await getFirestore().collection("utilisateurs").doc(uid).set(profileUpdates, { merge: true });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Update user error:", error);
+    res.status(400).json({ error: error.message || "Erreur lors de la mise à jour du compte." });
+  }
+});
+
+// Réinitialiser le mot de passe d'un collaborateur
+app.post("/api/admin/users/:uid/reset-password", requireAdmin, async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const newPassword = Math.random().toString(36).slice(-10) + "A1!";
+    await getAuth().updateUser(uid, { password: newPassword });
+    await getFirestore().collection("utilisateurs").doc(uid).set({ mustChangePassword: true }, { merge: true });
+    res.json({ success: true, newPassword });
+  } catch (error: any) {
+    console.error("Reset password error:", error);
+    res.status(400).json({ error: error.message || "Erreur lors de la réinitialisation du mot de passe." });
+  }
+});
+
+// Supprimer un collaborateur : compte de connexion + fiche profil
+app.delete("/api/admin/users/:uid", requireAdmin, async (req, res) => {
+  try {
+    const { uid } = req.params;
+    await getAuth()
+      .deleteUser(uid)
+      .catch((err: any) => {
+        if (err.code !== "auth/user-not-found") throw err;
+      });
+    await getFirestore().collection("utilisateurs").doc(uid).delete();
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Delete user error:", error);
+    res.status(400).json({ error: error.message || "Erreur lors de la suppression du compte." });
+  }
+});
+
+// Middleware : vérifie juste que l'appelant est authentifié (pas besoin d'être admin)
+async function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: "Authentification requise." });
+    const decoded = await getAuth().verifyIdToken(token);
+    (req as any).uid = decoded.uid;
+    next();
+  } catch (err) {
+    res.status(401).json({ error: "Session invalide, reconnectez-vous." });
+  }
+}
+
+// Un utilisateur confirme avoir changé son mot de passe
+app.post("/api/users/me/password-changed", requireAuth, async (req, res) => {
+  try {
+    const uid = (req as any).uid;
+    await getFirestore().collection("utilisateurs").doc(uid).set({ mustChangePassword: false }, { merge: true });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Erreur lors de la mise à jour." });
+  }
+});
+
+// ===================== FIN ADMIN SDK =====================
+
 
 // Vite Middleware & Static files routing
 async function startServer() {
