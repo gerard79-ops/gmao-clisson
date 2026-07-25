@@ -137,13 +137,6 @@ Propose un diagnostic précis en français et suggère les actions correctives i
 function initFirebaseAdmin() {
   if (getApps().length > 0) return;
   const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-  console.log("DEBUG - FIREBASE_SERVICE_ACCOUNT_PATH =", JSON.stringify(keyPath));
-  console.log("DEBUG - Variables contenant FIREBASE :", Object.keys(process.env).filter(k => k.includes("FIREBASE")));
-  try {
-    console.log("DEBUG - Contenu de /etc/secrets :", fs.readdirSync("/etc/secrets"));
-  } catch (e: any) {
-    console.log("DEBUG - Impossible de lister /etc/secrets :", e.message);
-  }
   if (!keyPath || !fs.existsSync(keyPath)) {
     console.warn(
       "FIREBASE_SERVICE_ACCOUNT_PATH non défini ou fichier introuvable : les routes d'administration des utilisateurs seront indisponibles."
