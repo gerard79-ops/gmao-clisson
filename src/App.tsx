@@ -1703,7 +1703,9 @@ if (!authUser) {
               )}
 
               {activeModule === 'interventions' && (
-                <Interventions
+		 <Interventions
+                  currentRole={currentUserProfile?.role || userRole}
+                  permissionsMatrix={db.permissionsMatrix}
                   interventions={db.interventions}
                   equipements={db.equipements}
                   pieces={db.pieces}

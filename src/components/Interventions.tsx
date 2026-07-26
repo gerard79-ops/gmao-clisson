@@ -39,8 +39,11 @@ import { SaisieVocale } from './SaisieVocale';
 import { ModuleHelp } from './ModuleHelp';
 import EquipmentTreeSelect from './EquipmentTreeSelect';
 import { compressImage } from '../utils/imageCompressor';
+import { hasPermission, PermissionsMatrix } from '../permissionsConfig';
 
 interface InterventionsProps {
+  currentRole: string;
+  permissionsMatrix: PermissionsMatrix;
   interventions: Intervention[];
   equipements: Equipement[];
   pieces: Piece[];
@@ -56,6 +59,8 @@ interface InterventionsProps {
 }
 
 export default function Interventions({
+  currentRole,
+  permissionsMatrix,
   interventions,
   equipements,
   pieces,
@@ -69,6 +74,11 @@ export default function Interventions({
   initialFilter,
   onClearFilter
 }: InterventionsProps) {
+  const canCreerBon = hasPermission(permissionsMatrix, currentRole, 'interventions', 'creer');
+  const canTraiterBon = hasPermission(permissionsMatrix, currentRole, 'interventions', 'traiter');
+  const canApprouverDI = hasPermission(permissionsMatrix, currentRole, 'interventions', 'approuver');
+  const canReouvrirBon = hasPermission(permissionsMatrix, currentRole, 'interventions', 'reouvrir');
+  const canCommenter = hasPermission(permissionsMatrix, currentRole, 'interventions', 'commenter');
   const [activeTab, setActiveTab] = useState<'kanban' | 'listes'>('kanban');
   const [viewMode, setViewMode] = useState<'standard' | 'swimlane' | 'workflow'>('standard');
   const [selectedIntId, setSelectedInterventionId] = useState<string | null>(null);
@@ -676,6 +686,7 @@ export default function Interventions({
             Gérez le flux de vos interventions correctives et préventives en temps réel.
           </p>
         </div>
+{canCreerBon && (
         <button
           onClick={() => {
             setCrOperateur("Pierre Martin (Tech)");
@@ -687,6 +698,7 @@ export default function Interventions({
           <Plus size={16} />
           B.T Flash
         </button>
+        )}
       </div>
 
       {/* NAVIGATION TABS */}
@@ -1406,12 +1418,14 @@ export default function Interventions({
                         onChange={e => setChatInput(e.target.value)}
                         className="flex-1 p-2 text-xs bg-primary-50 dark:bg-primary-900 border-none rounded-lg text-primary-800 dark:text-white outline-none"
                       />
+{canCommenter && (
                       <button
                         onClick={handleSendComment}
                         className="bg-accent-orange text-white p-2 rounded-lg hover:bg-accent-orange-hover transition"
                       >
                         <Send size={12} />
                       </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1428,6 +1442,7 @@ export default function Interventions({
                       <p className="text-xs text-primary-500 max-w-md mx-auto">
                         Cette demande est en attente d'approbation technique. En l'approuvant, elle sera automatiquement assignée au flux correctif BT (Bon de Travail) et passera au statut "En cours".
                       </p>
+{canApprouverDI && (
                       <button
                         onClick={handleApproveDI}
                         className="btn-large flex items-center justify-center gap-2"
@@ -1436,6 +1451,7 @@ export default function Interventions({
                         <CheckCircle size={18} />
                         Approuver et convertir en BT
                       </button>
+                      )}
                     </div>
                   ) : isClosed(selectedInt.statut) ? (
                     // ARCHIVED READ-ONLY
@@ -1463,6 +1479,7 @@ export default function Interventions({
                         )}
                       </div>
                       
+{canReouvrirBon && (
                       <button
                         onClick={handleReopenIntervention}
                         className="btn-large flex items-center justify-center gap-2 border border-red-200 text-red-500 hover:bg-red-500 hover:text-white"
@@ -1471,6 +1488,7 @@ export default function Interventions({
                         <Unlock size={16} />
                         Bris de cadenas (Réouvrir le BT)
                       </button>
+                      )}
                     </div>
                   ) : selectedInt.statut === 'Brouillon' ? (
                     // BROUILLON MODE
@@ -1558,7 +1576,9 @@ export default function Interventions({
                           🔒 Ce bon de travail est verrouillé en attente de signature par le Responsable Technique. Vous serez notifié une fois validé.
                         </p>
                       ) : (
-                        <div className="space-y-3 pt-3 border-t">
+<div className="space-y-3 pt-3 border-t">
+                          {canTraiterBon && (
+                          <>
                           <p className="text-xs text-primary-500 font-bold">Actions d'approbation (Rôle : {userRole || 'Manager/Responsable'}) :</p>
                           <div className="flex flex-col sm:flex-row gap-3">
                             <button
@@ -1599,6 +1619,8 @@ export default function Interventions({
                               <span>Renvoyer en correction</span>
                             </button>
                           </div>
+                          </>
+                          )}
                         </div>
                       )}
                     </div>
