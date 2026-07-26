@@ -1664,10 +1664,12 @@ if (!authUser) {
               )}
 
               {activeModule === 'equipements' && (
-                <Equipements
+		  <Equipements
+                  currentRole={currentUserProfile?.role || userRole}
+                  permissionsMatrix={db.permissionsMatrix}
                   equipements={db.equipements}
-                  settings={db.settings}
-                  interventions={db.interventions}
+                  settings={db.settings}                  
+		  interventions={db.interventions}
                   mouvements={db.mouvements}
                   pieces={db.pieces}
                   documents={db.documents || []}

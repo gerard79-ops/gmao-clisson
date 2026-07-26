@@ -2056,7 +2056,7 @@ const handleResetPassword = async (u: Utilisateur) => {
           </div>
 )}
 
-        {/* TAB 6: PERMISSIONS MATRIX */}
+        {/* TAB 6: PERMISSIONS MATRIX */} 
         {activeTab === 'permissions' && (
           <div className="p-6 space-y-6">
             <div className="flex items-start justify-between gap-4 flex-wrap">

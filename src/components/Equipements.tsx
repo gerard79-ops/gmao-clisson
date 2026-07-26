@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { hasPermission, PermissionsMatrix } from '../permissionsConfig';
 import {
   Plus,
   Network,
@@ -60,8 +61,10 @@ import EquipmentTreeSelect from './EquipmentTreeSelect';
 import { compressImage } from '../utils/imageCompressor';
 
 interface EquipementsProps {
+  currentRole: string;
+  permissionsMatrix: PermissionsMatrix;
   equipements: Equipement[];
-  interventions: Intervention[];
+  interventions: Intervention[];  
   settings: GlobalSettings;
   mouvements: MouvementStock[];
   pieces: Piece[];
@@ -84,6 +87,8 @@ interface EquipementsProps {
 }
 
 export default function Equipements({
+  currentRole,
+  permissionsMatrix,
   equipements,
   interventions,
   settings,
@@ -106,6 +111,10 @@ export default function Equipements({
   onClearCriticalityFilter,
   onAddIntervention
 }: EquipementsProps) {
+  const canCreateEquipement = hasPermission(permissionsMatrix, currentRole, 'equipements', 'creer');
+  const canModifierEquipement = hasPermission(permissionsMatrix, currentRole, 'equipements', 'modifier');
+  const canSupprimerEquipement = hasPermission(permissionsMatrix, currentRole, 'equipements', 'supprimer');
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsEditingNew] = useState(false);
@@ -3393,6 +3402,7 @@ export default function Equipements({
             <Download size={16} />
             Exporter CSV
           </button>
+{canCreateEquipement && (
           <button
             onClick={handleStartCreate}
             className="btn-primary"
@@ -3400,6 +3410,7 @@ export default function Equipements({
             <Plus size={16} />
             Nouvel Équipement
           </button>
+          )}
         </div>
       </div>
 
@@ -4202,6 +4213,7 @@ export default function Equipements({
                     <Printer size={12} className="text-accent-orange" />
                     Imprimer
                   </button>
+{canModifierEquipement && (
                   <button
                     onClick={handleStartEdit}
                     className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3"
@@ -4209,6 +4221,8 @@ export default function Equipements({
                     <Pen size={12} />
                     Modifier
                   </button>
+                  )}
+                  {canSupprimerEquipement && (
                   <button
                     onClick={() => handleDeleteEquipment(selectedEq.id)}
                     className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 font-semibold"
@@ -4217,6 +4231,7 @@ export default function Equipements({
                     <Trash2 size={12} />
                     Supprimer
                   </button>
+                  )}
                 </div>
               </div>
 
@@ -5658,6 +5673,7 @@ export default function Equipements({
               Mode d'emploi du module
             </button>
           </div>
+{canSupprimerEquipement && (
           <div className="py-1">
             <button
               onClick={() => {
@@ -5670,6 +5686,7 @@ export default function Equipements({
               Supprimer l'équipement
             </button>
           </div>
+          )}
         </div>
       )}
 
