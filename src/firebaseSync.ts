@@ -28,6 +28,7 @@ import {
   Budget,
   Utilisateur
 } from './types';
+import { PermissionsMatrix, buildDefaultPermissionsMatrix } from './permissionsConfig';
 import {
   GMAODatabase,
   INITIAL_SETTINGS,
@@ -107,14 +108,27 @@ export const checkAndSeedFirestore = async (): Promise<boolean> => {
         await setDoc(doc(db, 'budgets', b.id), b);
       }
 
-      // 12. Seed Utilisateurs
+// 12. Seed Utilisateurs
       for (const u of INITIAL_UTILISATEURS) {
         await setDoc(doc(db, 'utilisateurs', u.id), u);
       }
 
+      // 13. Seed Permissions Matrix
+      await setDoc(doc(db, 'settings', 'permissions'), buildDefaultPermissionsMatrix());
+
       console.log('Firestore successfully seeded!');
       return true;
     }
+
+    // Projet déjà initialisé : on s'assure quand même que la matrice
+    // d'habilitations existe (cas d'un projet migré avant cette fonctionnalité).
+    const permissionsRef = doc(db, 'settings', 'permissions');
+    const permsSnap = await getDoc(permissionsRef);
+    if (!permsSnap.exists()) {
+      await setDoc(permissionsRef, buildDefaultPermissionsMatrix());
+      console.log('Permissions matrix seeded (existing project).');
+    }
+
     return false;
   } catch (error) {
     console.error('Error during Firestore seeding:', error);
@@ -128,11 +142,20 @@ export const subscribeToGMAODatabase = (
 ): (() => void) => {
   const unsubscribes: (() => void)[] = [];
 
-  // Settings subscription
+// Settings subscription
   unsubscribes.push(
     onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
         onUpdate({ settings: docSnap.data() as GlobalSettings });
+      }
+    })
+  );
+
+  // Permissions matrix subscription
+  unsubscribes.push(
+    onSnapshot(doc(db, 'settings', 'permissions'), (docSnap) => {
+      if (docSnap.exists()) {
+        onUpdate({ permissionsMatrix: docSnap.data() as PermissionsMatrix });
       }
     })
   );
@@ -289,6 +312,10 @@ export const subscribeToGMAODatabase = (
 
 export const dbSaveSettings = async (settings: GlobalSettings) => {
   await setDoc(doc(db, 'settings', 'global'), settings);
+};
+
+export const dbSavePermissionsMatrix = async (matrix: PermissionsMatrix) => {
+  await setDoc(doc(db, 'settings', 'permissions'), matrix);
 };
 
 export const dbSaveEquipement = async (eq: Equipement) => {

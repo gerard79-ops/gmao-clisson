@@ -37,7 +37,8 @@ import {
   dbDeleteBudget,
   dbSaveUtilisateur,
   dbDeleteUtilisateur,
-  dbDeleteAuditLog
+  dbDeleteAuditLog,
+  dbSavePermissionsMatrix
 } from './firebaseSync';
 import {
   GlobalSettings,
@@ -284,14 +285,8 @@ export default function App() {
   }, []);
 
   // Firebase Auth States
-  const [authUser, setAuthUser] = useState<User | null>(null);
+const [authUser, setAuthUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-
-  // Local User State fallback (for when firebase auth is disabled/offline)
-  const [localUser, setLocalUser] = useState<{ email: string } | null>(() => {
-    const saved = localStorage.getItem('gmaopro_local_user');
-    return saved ? JSON.parse(saved) : null;
-  });
 
  useEffect(() => {
   const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -321,6 +316,9 @@ useEffect(() => {
   }
 }, [authUser, db.utilisateurs]);
 
+const currentUserProfile = (db.utilisateurs || []).find(
+  (u) => u.id === authUser?.uid || u.email === authUser?.email
+);
 const isRealAdmin = (db.utilisateurs || []).some(
   (u) => (u.id === authUser?.uid || u.email === authUser?.email) && u.role === 'Administrateur'
 );
@@ -538,7 +536,7 @@ const isRealAdmin = (db.utilisateurs || []).some(
 
 // 1. Setup Firestore Check, Seeding, and Real-time subscription
   useEffect(() => {
-    if (!authUser && !localUser) return; // attend que l'utilisateur soit connecté
+    if (!authUser) return; // attend que l'utilisateur soit connecté
     let unsubscribe: (() => void) | null = null;
     checkAndSeedFirestore().then(() => {
       unsubscribe = subscribeToGMAODatabase((updates) => {
@@ -548,16 +546,15 @@ const isRealAdmin = (db.utilisateurs || []).some(
     }).catch(err => {
       console.error("Firestore sync error:", err);
     });
-
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [authUser, localUser]);
+  }, [authUser]);
 
   // Security log generator helper
   const handleLogAction = useCallback(async (action: string, details: string, criticite: 'faible' | 'moyenne' | 'eleve' = 'faible') => {
     let userDisplayName = "Utilisateur Inconnu";
-    const activeEmail = authUser?.email || localUser?.email;
+const activeEmail = authUser?.email;
     if (activeEmail) {
       if (activeEmail === 'admin@gmaopro.com') {
         userDisplayName = `Jean Dupont (${userRole})`;
@@ -584,7 +581,7 @@ const isRealAdmin = (db.utilisateurs || []).some(
     } catch (e) {
       console.warn("Could not save audit log to Firestore:", e);
     }
-  }, [userRole, authUser, localUser]);
+}, [userRole, authUser]);
 
   // Update Settings
   const handleUpdateSettings = (payload: Partial<GlobalSettings>) => {
@@ -823,6 +820,16 @@ const isRealAdmin = (db.utilisateurs || []).some(
     if (current) {
       triggerInAppNotification(`Accès supprimé pour ${current.prenom} ${current.nom}`, 'info');
       handleLogAction("Suppression Collaborateur", `Suppression définitive de l'accès pour : ${current.prenom} ${current.nom}`, "eleve");
+    }
+  };
+
+const handleSavePermissionsMatrix = async (matrix: typeof db.permissionsMatrix) => {
+    setDb((prev) => ({ ...prev, permissionsMatrix: matrix }));
+    try {
+      await dbSavePermissionsMatrix(matrix);
+    } catch (e) {
+      console.error('Error saving permissions matrix:', e);
+      triggerInAppNotification("Erreur lors de l'enregistrement de la matrice d'habilitations.", 'warn');
     }
   };
 
@@ -1238,21 +1245,15 @@ const isRealAdmin = (db.utilisateurs || []).some(
     );
   }
 
-  if (!authUser && !localUser) {
+if (!authUser) {
     return (
       <div className={effectiveThemeMode === 'dark' ? 'dark' : ''}>
-        <Login onLoginSuccess={(email, role) => {
-          const user = { email };
-          setLocalUser(user);
-          localStorage.setItem('gmaopro_local_user', JSON.stringify(user));
-          setUserRole(role);
-          localStorage.setItem('gmaopro_role', role);
-          triggerInAppNotification(`Bienvenue, session active en mode ${role === 'Manager' ? 'Admin' : 'Technicien'}.`, "success");
+        <Login onLoginSuccess={(email) => {
+          triggerInAppNotification(`Bienvenue, ${email}.`, "success");
         }} />
       </div>
     );
   }
-
   if (mustChangePassword && authUser) {
     return (
       <ForcePasswordChangeModal
@@ -1413,29 +1414,20 @@ const isRealAdmin = (db.utilisateurs || []).some(
               </AnimatePresence>
             </div>
 
-            {/* Authenticated User Display and Sign Out */}
-            {(authUser || localUser) && (
+{/* Authenticated User Display and Sign Out */}
+{authUser && (
               <div className="flex items-center gap-2 border-l border-primary-200 dark:border-primary-800 pl-3">
                 <div className="hidden xl:flex flex-col text-right">
                   <span className="text-xs font-semibold text-primary-900 dark:text-white leading-tight">
-                    {(() => {
-                      const email = authUser?.email || localUser?.email;
-                      if (email === 'admin@gmaopro.com') return 'Jean Dupont';
-                      if (email === 'tech1@gmaopro.com') return 'Pierre Martin';
-                      return email;
-                    })()}
+                    {currentUserProfile ? `${currentUserProfile.prenom} ${currentUserProfile.nom}` : authUser.email}
                   </span>
                   <span className="text-[10px] text-primary-400 font-medium leading-none">
-                    {userRole}
+                    {currentUserProfile ? currentUserProfile.role : userRole}
                   </span>
                 </div>
                 <button
                   onClick={async () => {
-                    if (authUser) {
-                      await signOut(auth);
-                    }
-                    setLocalUser(null);
-                    localStorage.removeItem('gmaopro_local_user');
+                    await signOut(auth);
                     triggerInAppNotification("Déconnexion réussie.", "info");
                   }}
                   className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 flex items-center justify-center cursor-pointer transition-colors"
@@ -1826,6 +1818,8 @@ const isRealAdmin = (db.utilisateurs || []).some(
               {activeModule === 'administration' && isRealAdmin && (
                 <Administration
                   db={db}
+		  permissionsMatrix={db.permissionsMatrix}
+                  onSavePermissionsMatrix={handleSavePermissionsMatrix}
                   userRole={userRole}
                   onAddUtilisateur={handleAddUtilisateur}
                   onEditUtilisateur={handleEditUtilisateur}

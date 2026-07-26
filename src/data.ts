@@ -20,10 +20,12 @@ import {
   DocumentGed,
   Budget
 } from './types';
+import { PermissionsMatrix, buildDefaultPermissionsMatrix } from './permissionsConfig';
 
 // Keys for LocalStorage
 const KEYS = {
   SETTINGS: 'gmao_settings',
+  PERMISSIONS_MATRIX: 'gmao_permissions_matrix',
   OBJECTIFS: 'gmao_objectifs',
   EQUIPEMENTS: 'gmao_equipements',
   INTERVENTIONS: 'gmao_interventions',
@@ -915,6 +917,7 @@ export interface GMAODatabase {
   documents: DocumentGed[];
   budgets: Budget[];
   utilisateurs: Utilisateur[];
+  permissionsMatrix: PermissionsMatrix;
 }
 
 export const loadDatabase = (): GMAODatabase => {
@@ -937,7 +940,8 @@ export const loadDatabase = (): GMAODatabase => {
     auditLogs: getFromLS<AuditLog[]>(KEYS.AUDIT_LOGS, INITIAL_AUDIT_LOGS),
     documents: getFromLS<DocumentGed[]>(KEYS.DOCUMENTS, INITIAL_DOCUMENTS),
     budgets: getFromLS<Budget[]>(KEYS.BUDGETS, INITIAL_BUDGETS),
-    utilisateurs: getFromLS<Utilisateur[]>(KEYS.UTILISATEURS, INITIAL_UTILISATEURS)
+    utilisateurs: getFromLS<Utilisateur[]>(KEYS.UTILISATEURS, INITIAL_UTILISATEURS),
+    permissionsMatrix: getFromLS<PermissionsMatrix>(KEYS.PERMISSIONS_MATRIX, buildDefaultPermissionsMatrix())
   };
 
   if (!localStorage.getItem(KEYS.SETTINGS)) saveToLS(KEYS.SETTINGS, db.settings);

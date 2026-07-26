@@ -48,10 +48,13 @@ import { Utilisateur, Fournisseur, GlobalSettings } from '../types';
 import { GMAODatabase } from '../data';
 import { ModuleHelp } from './ModuleHelp';
 import { auth } from '../firebase';
+import { PERMISSIONS_CONFIG, PERMISSION_ROLES, PermissionsMatrix } from '../permissionsConfig';
 
 interface AdministrationProps {
   db: GMAODatabase;
   userRole: string;
+  permissionsMatrix: PermissionsMatrix;
+  onSavePermissionsMatrix: (matrix: PermissionsMatrix) => void;
   onAddUtilisateur: (payload: Omit<Utilisateur, 'id'>) => void;
   onEditUtilisateur: (id: string, payload: Partial<Utilisateur>) => void;
   onDeleteUtilisateur: (id: string) => void;
@@ -67,6 +70,8 @@ interface AdministrationProps {
 export default function Administration({
   db,
   userRole,
+  permissionsMatrix,
+  onSavePermissionsMatrix,
   onAddUtilisateur,
   onEditUtilisateur,
   onDeleteUtilisateur,
@@ -78,7 +83,23 @@ export default function Administration({
   onPurgeAuditLogs,
   triggerNotification
 }: AdministrationProps) {
-  const [activeTab, setActiveTab] = useState<'users' | 'suppliers' | 'security' | 'system' | 'performance'>('users');
+const [activeTab, setActiveTab] = useState<'users' | 'suppliers' | 'security' | 'system' | 'performance' | 'permissions'>('users');
+  const [permsModule, setPermsModule] = useState<string>(PERMISSIONS_CONFIG[0].module);
+const togglePermission = (moduleKey: string, actionKey: string, role: string) => {
+    const currentRoles = permissionsMatrix[moduleKey]?.[actionKey] || [];
+    const updatedRoles = currentRoles.includes(role as any)
+      ? currentRoles.filter((r) => r !== role)
+      : [...currentRoles, role];
+
+    const newMatrix: PermissionsMatrix = {
+      ...permissionsMatrix,
+      [moduleKey]: {
+        ...permissionsMatrix[moduleKey],
+        [actionKey]: updatedRoles
+      }
+    };
+    onSavePermissionsMatrix(newMatrix);
+  };
   
   // Performance Dashboard states
   const [optAggressiveCaching, setOptAggressiveCaching] = useState(false);
@@ -631,12 +652,19 @@ const handleResetPassword = async (u: Utilisateur) => {
           <Activity size={16} />
           Diagnostic & Outils Système
         </button>
-        <button
+<button
           onClick={() => setActiveTab('performance')}
           className={`px-4 py-2.5 font-display font-bold text-sm border-b-2 transition flex items-center gap-2 ${activeTab === 'performance' ? 'border-accent-orange text-accent-orange' : 'border-transparent text-primary-500 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200'}`}
         >
           <Gauge size={16} />
           Performance & Optimisation
+        </button>
+        <button
+          onClick={() => setActiveTab('permissions')}
+          className={`px-4 py-2.5 font-display font-bold text-sm border-b-2 transition flex items-center gap-2 ${activeTab === 'permissions' ? 'border-accent-orange text-accent-orange' : 'border-transparent text-primary-500 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200'}`}
+        >
+          <Sliders size={16} />
+          Matrice des Habilitations
         </button>
       </div>
 
@@ -2026,8 +2054,85 @@ const handleResetPassword = async (u: Utilisateur) => {
 
             </div>
           </div>
-        )}
+)}
 
+        {/* TAB 6: PERMISSIONS MATRIX */}
+        {activeTab === 'permissions' && (
+          <div className="p-6 space-y-6">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <h3 className="font-display font-bold text-primary-900 dark:text-white text-base">
+                  Matrice des habilitations
+                </h3>
+                <p className="text-xs text-primary-500 dark:text-primary-400 mt-1 max-w-2xl">
+                  Cochez, pour chaque action, les rôles autorisés à l'effectuer. Les cases sont pré-remplies
+                  avec des valeurs par défaut raisonnables, entièrement modifiables. Chaque changement est
+                  enregistré immédiatement et s'applique à tous les collaborateurs ayant ce rôle.
+                </p>
+              </div>
+            </div>
+
+            {/* Module selector */}
+            <div className="flex flex-wrap gap-2">
+              {PERMISSIONS_CONFIG.map((mod) => (
+                <button
+                  key={mod.module}
+                  onClick={() => setPermsModule(mod.module)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition ${
+                    permsModule === mod.module
+                      ? 'bg-accent-orange text-white border-accent-orange'
+                      : 'bg-white dark:bg-primary-800 text-primary-600 dark:text-primary-300 border-primary-200 dark:border-primary-700 hover:border-accent-orange/50'
+                  }`}
+                >
+                  {mod.moduleLabel}
+                </button>
+              ))}
+            </div>
+
+            {/* Permissions table for selected module */}
+            <div className="overflow-x-auto border border-primary-200 dark:border-primary-800 rounded-2xl">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-primary-50 dark:bg-primary-950/50 border-b border-primary-200 dark:border-primary-800">
+                    <th className="text-left px-4 py-3 font-bold text-primary-700 dark:text-primary-300 whitespace-nowrap">
+                      Action
+                    </th>
+                    {PERMISSION_ROLES.map((role) => (
+                      <th key={role} className="text-center px-3 py-3 font-bold text-primary-700 dark:text-primary-300 whitespace-nowrap">
+                        {role}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {PERMISSIONS_CONFIG.find((m) => m.module === permsModule)?.actions.map((action, idx) => (
+                    <tr
+                      key={action.key}
+                      className={idx % 2 === 0 ? 'bg-white dark:bg-primary-900' : 'bg-primary-50/50 dark:bg-primary-950/30'}
+                    >
+                      <td className="px-4 py-2.5 font-semibold text-primary-800 dark:text-primary-200 whitespace-nowrap">
+                        {action.label}
+                      </td>
+                      {PERMISSION_ROLES.map((role) => {
+                        const checked = (permissionsMatrix[permsModule]?.[action.key] || []).includes(role);
+                        return (
+                          <td key={role} className="text-center px-3 py-2.5">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => togglePermission(permsModule, action.key, role)}
+                              className="accent-accent-orange w-4 h-4 cursor-pointer"
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+)}
       </div>
 
       {/* USER CREATION/EDIT MODAL */}
