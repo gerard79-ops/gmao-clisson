@@ -1759,6 +1759,8 @@ if (!authUser) {
 
               {activeModule === 'planning' && (
                 <Planning
+		  currentRole={currentUserProfile?.role || userRole}
+                  permissionsMatrix={db.permissionsMatrix}
                   gammes={db.gammes}
                   compteurs={db.compteurs}
                   equipements={db.equipements}

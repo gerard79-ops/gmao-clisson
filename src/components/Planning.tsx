@@ -15,6 +15,7 @@ import {
 } from '../types';
 import { ModuleHelp } from './ModuleHelp';
 import EquipmentTreeSelect from './EquipmentTreeSelect';
+import { hasPermission, PermissionsMatrix } from '../permissionsConfig';
 import {
   Calendar,
   ClipboardList,
@@ -43,6 +44,8 @@ import {
 } from 'lucide-react';
 
 interface PlanningProps {
+  currentRole: string;
+  permissionsMatrix: PermissionsMatrix;
   gammes: GammePreventive[];
   compteurs: Compteur[];
   equipements: Equipement[];
@@ -59,6 +62,8 @@ interface PlanningProps {
 }
 
 export default function Planning({
+  currentRole,
+  permissionsMatrix,
   gammes,
   compteurs,
   equipements,
@@ -73,6 +78,9 @@ export default function Planning({
   userRole,
   utilisateurs = []
 }: PlanningProps) {
+const canCreerModifierGamme = hasPermission(permissionsMatrix, currentRole, 'planning', 'creerModifierGamme');
+  const canSupprimerGamme = hasPermission(permissionsMatrix, currentRole, 'planning', 'supprimerGamme');
+  const canReleveCompteur = hasPermission(permissionsMatrix, currentRole, 'planning', 'releveCompteur');
   const [activeTab, setActiveTab] = useState<'calendrier' | 'gammes' | 'compteurs'>('calendrier');
   const [selectedGammeId, setSelectedGammeId] = useState<string | null>(null);
   const [showGammeForm, setShowGammeForm] = useState(false);
@@ -574,7 +582,7 @@ export default function Planning({
           </p>
         </div>
 
-        {activeTab === 'gammes' && (
+{activeTab === 'gammes' && canCreerModifierGamme && (
           <button
             onClick={handleStartCreate}
             className="btn-primary"
@@ -1571,6 +1579,7 @@ export default function Planning({
                             >
                               <Printer size={14} />
                             </button>
+{canCreerModifierGamme && (
                             <button
                               onClick={() => handleStartEdit(g)}
                               className="btn-icon bg-primary-100 hover:bg-sky-500 hover:text-white"
@@ -1578,13 +1587,16 @@ export default function Planning({
                             >
                               <PenTool size={14} />
                             </button>
+                            )}
+                            {canSupprimerGamme && (
                             <button
                               onClick={() => handleDeleteGamme(g.id)}
-                              className={`btn-icon bg-primary-100 ${userRole === 'Technicien' ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-500 hover:text-white'}`}
-                              title={userRole === 'Technicien' ? "Suppression réservée aux Managers (Accès restreint)" : "Supprimer"}
+                              className="btn-icon bg-primary-100 hover:bg-red-500 hover:text-white"
+                              title="Supprimer"
                             >
                               <Trash2 size={14} />
                             </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1642,12 +1654,14 @@ export default function Planning({
                 />
               </div>
 
+{canReleveCompteur && (
               <button
                 type="submit"
                 className="btn-primary w-full justify-center"
               >
                 Valider Relevé
               </button>
+              )}
             </form>
           </div>
 
