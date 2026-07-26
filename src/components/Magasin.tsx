@@ -16,6 +16,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 import { ModuleHelp } from './ModuleHelp';
 import EquipmentTreeSelect from './EquipmentTreeSelect';
 import { compressImage } from '../utils/imageCompressor';
+import { hasPermission, PermissionsMatrix } from '../permissionsConfig';
 import {
   Boxes,
   Plus,
@@ -39,6 +40,8 @@ import {
 } from 'lucide-react';
 
 interface MagasinProps {
+  currentRole: string;
+  permissionsMatrix: PermissionsMatrix;
   pieces: Piece[];
   equipements: Equipement[];
   suppliers: Fournisseur[];
@@ -56,6 +59,8 @@ interface MagasinProps {
 }
 
 export default function Magasin({
+  currentRole,
+  permissionsMatrix,
   pieces,
   equipements,
   suppliers,
@@ -71,6 +76,12 @@ export default function Magasin({
   onClearFilter,
   userRole
 }: MagasinProps) {
+const canCreerModifierPiece = hasPermission(permissionsMatrix, currentRole, 'magasin', 'creerModifierPiece');
+  const canEntree = hasPermission(permissionsMatrix, currentRole, 'magasin', 'entree');
+  const canSortie = hasPermission(permissionsMatrix, currentRole, 'magasin', 'sortie');
+  const canInventaire = hasPermission(permissionsMatrix, currentRole, 'magasin', 'inventaire');
+  const canSupprimerPiece = hasPermission(permissionsMatrix, currentRole, 'magasin', 'supprimer');
+  const canExporterStock = hasPermission(permissionsMatrix, currentRole, 'magasin', 'exporter');
   const [activeTab, setActiveTab] = useState<'inventaire' | 'mouvements'>('inventaire');
   const [selectedPieceId, setSelectedPieceId] = useState<string | null>(null);
 
@@ -645,6 +656,7 @@ export default function Magasin({
         </div>
 
         <div className="flex flex-wrap gap-2 md:justify-end">
+{canExporterStock && (
           <button
             onClick={exportPiecesToCSV}
             className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3 bg-white hover:bg-primary-50 text-primary-700 dark:bg-primary-800 dark:hover:bg-primary-750 dark:text-primary-200 border border-primary-200 dark:border-primary-700"
@@ -653,6 +665,7 @@ export default function Magasin({
             <Download size={16} />
             Exporter CSV
           </button>
+          )}
           <button
             onClick={() => setShowScannerModal(true)}
             className="btn-primary"
@@ -661,6 +674,7 @@ export default function Magasin({
             <Camera size={16} />
             Scanner Sortie
           </button>
+{canInventaire && (
           <button
             onClick={() => setShowInventaireModal(true)}
             className="btn-primary"
@@ -669,6 +683,8 @@ export default function Magasin({
             <ClipboardCheck size={16} />
             Inv. Tournant
           </button>
+          )}
+{canCreerModifierPiece && (
           <button
             onClick={handleStartCreate}
             className="btn-primary"
@@ -676,6 +692,7 @@ export default function Magasin({
             <Plus size={16} />
             Nouvelle Pièce
           </button>
+          )}
         </div>
       </div>
 
@@ -860,6 +877,7 @@ export default function Magasin({
         <div className="space-y-6">
           {/* QUICK INPUT AND OUTPUT CREATION BANNER */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+{canEntree && (
             <button
               onClick={() => {
                 setMvtInPieceId(pieces[0]?.id || '');
@@ -873,7 +891,9 @@ export default function Magasin({
               <ArrowDown size={22} />
               CRÉER UNE ENTRÉE (RÉASSORT)
             </button>
+            )}
 
+            {canSortie && (
             <button
               onClick={() => {
                 setMvtOutPieceId(pieces[0]?.id || '');
@@ -887,6 +907,7 @@ export default function Magasin({
               <ArrowUp size={22} />
               CRÉER UNE SORTIE (PRÉLÈVEMENT)
             </button>
+            )}
           </div>
 
           {/* MOVEMENTS HISTORIC AND FILTERS */}
@@ -895,6 +916,7 @@ export default function Magasin({
               <h3 className="text-sm font-bold text-primary-800 dark:text-primary-200">
                 Historique des Transactions Magasin
               </h3>
+{canExporterStock && (
               <button
                 onClick={() => handleDownloadReport('Mouvements de stock')}
                 className="btn-secondary text-xs flex items-center gap-1 py-1.5"
@@ -902,6 +924,7 @@ export default function Magasin({
                 <FileSpreadsheet size={14} />
                 Exporter XLS
               </button>
+              )}
             </div>
 
             {/* Filter controls */}
@@ -1014,14 +1037,17 @@ export default function Magasin({
               </div>
             </div>
 
-            <div className="flex gap-2">
+<div className="flex gap-2">
+              {canSupprimerPiece && (
               <button
                 onClick={handleDelete}
-                className={`btn-secondary text-red-500 border-red-200 ${userRole === 'Technicien' ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50'}`}
-                title={userRole === 'Technicien' ? "Suppression réservée aux Managers (Accès restreint)" : "Supprimer cet article"}
+                className="btn-secondary text-red-500 border-red-200 hover:bg-red-50"
+                title="Supprimer cet article"
               >
                 <Trash2 size={14} />
               </button>
+              )}
+              {canCreerModifierPiece && (
               <button
                 onClick={handleStartEdit}
                 className="btn-primary"
@@ -1030,6 +1056,7 @@ export default function Magasin({
                 <PenTool size={14} />
                 Modifier
               </button>
+              )}
             </div>
           </div>
 
@@ -1066,6 +1093,7 @@ export default function Magasin({
 
               {/* Transactions quick links */}
               <div className="card flex flex-col gap-2">
+{canEntree && (
                 <button
                   onClick={() => {
                     setMvtInPieceId(selectedPiece.id);
@@ -1080,6 +1108,8 @@ export default function Magasin({
                   <ArrowDown size={14} />
                   Enregistrer une Entrée
                 </button>
+                )}
+                {canSortie && (
                 <button
                   onClick={() => {
                     setMvtOutPieceId(selectedPiece.id);
@@ -1092,6 +1122,7 @@ export default function Magasin({
                   <ArrowUp size={14} />
                   Enregistrer une Sortie
                 </button>
+                )}
               </div>
             </div>
 
@@ -1782,6 +1813,7 @@ export default function Magasin({
                 </span>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setShowInventaireModal(false)} className="btn-secondary">Annuler</button>
+{canInventaire && (
                   <button
                     onClick={handleSaveTournant}
                     disabled={tournantItems.length === 0}
@@ -1790,6 +1822,7 @@ export default function Magasin({
                   >
                     Valider Inventaire
                   </button>
+                  )}
                 </div>
               </div>
             </motion.div>

@@ -1738,6 +1738,8 @@ if (!authUser) {
 
               {activeModule === 'magasin' && (
                 <Magasin
+		  currentRole={currentUserProfile?.role || userRole}
+                  permissionsMatrix={db.permissionsMatrix}
                   pieces={db.pieces}
                   equipements={db.equipements}
                   suppliers={db.suppliers}
