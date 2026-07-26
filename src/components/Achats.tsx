@@ -12,6 +12,7 @@ import {
   Equipement,
   Budget
 } from '../types';
+import { hasPermission, PermissionsMatrix } from '../permissionsConfig';
 import { ModuleHelp } from './ModuleHelp';
 import {
   ShoppingBag,
@@ -47,6 +48,8 @@ import {
 } from 'recharts';
 
 interface AchatsProps {
+  currentRole: string;
+  permissionsMatrix: PermissionsMatrix;
   suppliers: Fournisseur[];
   commandes: Commande[];
   settings: GlobalSettings;
@@ -63,6 +66,8 @@ interface AchatsProps {
 }
 
 export default function Achats({
+  currentRole,
+  permissionsMatrix,
   suppliers,
   commandes,
   settings,
@@ -77,6 +82,13 @@ export default function Achats({
   onDeleteBudget,
   userRole
 }: AchatsProps) {
+const canCreerCommande = hasPermission(permissionsMatrix, currentRole, 'achats', 'creerCommande');
+  const canCreerModifierFournisseur = hasPermission(permissionsMatrix, currentRole, 'achats', 'creerModifierFournisseur');
+  const canSupprimerFournisseur = hasPermission(permissionsMatrix, currentRole, 'achats', 'supprimerFournisseur');
+  const canCreerModifierBudget = hasPermission(permissionsMatrix, currentRole, 'achats', 'creerModifierBudget');
+  const canSupprimerBudget = hasPermission(permissionsMatrix, currentRole, 'achats', 'supprimerBudget');
+  const canImporterCSV = hasPermission(permissionsMatrix, currentRole, 'achats', 'importerCSV');
+  const canExporterAchats = hasPermission(permissionsMatrix, currentRole, 'achats', 'exporter');
   const [activeTab, setActiveTab] = useState<'commandes' | 'partenaires' | 'budgets'>('commandes');
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
 
@@ -813,7 +825,8 @@ export default function Achats({
           </p>
         </div>
 
-        {activeTab === 'commandes' ? (
+{activeTab === 'commandes' ? (
+          canCreerCommande && (
           <button
             onClick={() => {
               setCmdSupplierId(suppliers[0]?.id || '');
@@ -827,7 +840,9 @@ export default function Achats({
             <ShoppingBag size={16} />
             Nouvelle Commande
           </button>
+          )
         ) : activeTab === 'partenaires' ? (
+          canCreerModifierFournisseur && (
           <button
             onClick={handleStartCreate}
             className="btn-primary"
@@ -836,7 +851,9 @@ export default function Achats({
             <Plus size={16} />
             Nouveau Partenaire
           </button>
+          )
         ) : (
+          canCreerModifierBudget && (
           <button
             onClick={handleStartCreateBudget}
             className="btn-primary"
@@ -845,6 +862,7 @@ export default function Achats({
             <Plus size={16} />
             Allouer Budget
           </button>
+          )
         )}
       </div>
 
@@ -895,6 +913,7 @@ export default function Achats({
               <h3 className="text-sm font-bold text-primary-800 dark:text-primary-200">
                 Historique des Commandes d'Achats
               </h3>
+{canExporterAchats && (
               <button
                 onClick={() => handleExportData('Historique des Commandes d\'Achat')}
                 className="btn-secondary text-xs flex items-center gap-1 py-1.5"
@@ -902,6 +921,7 @@ export default function Achats({
                 <FileSpreadsheet size={14} />
                 Exporter Excel
               </button>
+              )}
             </div>
 
             <div className="overflow-x-auto">
@@ -997,6 +1017,7 @@ export default function Achats({
                   <span>Gabarit CSV</span>
                 </button>
 
+{canImporterCSV && (
                 <button
                   onClick={() => {
                     setImportTargetType('Sous-traitant');
@@ -1008,7 +1029,9 @@ export default function Achats({
                   <Upload size={13} className="text-blue-500" />
                   <span>Importer CSV (Sous-traitants)</span>
                 </button>
+                )}
 
+                {canImporterCSV && (
                 <button
                   onClick={() => {
                     setImportTargetType('Fournisseur');
@@ -1020,7 +1043,9 @@ export default function Achats({
                   <Upload size={13} className="text-indigo-500" />
                   <span>Importer CSV (Fournisseurs)</span>
                 </button>
+                )}
 
+                {canExporterAchats && (
                 <button
                   onClick={exportSubcontractorsToCSV}
                   className="btn-secondary text-[11px] h-9 flex items-center gap-1.5 py-1.5 px-3"
@@ -1029,7 +1054,9 @@ export default function Achats({
                   <Download size={13} className="text-orange-500" />
                   <span>Exporter CSV (Sous-traitants)</span>
                 </button>
+                )}
 
+                {canExporterAchats && (
                 <button
                   onClick={exportSuppliersToCSV}
                   className="btn-secondary text-[11px] h-9 flex items-center gap-1.5 py-1.5 px-3"
@@ -1038,6 +1065,7 @@ export default function Achats({
                   <Download size={13} className="text-pink-500" />
                   <span>Exporter CSV (Fournisseurs)</span>
                 </button>
+                )}
               </div>
             </div>
 
@@ -1122,6 +1150,7 @@ export default function Achats({
               </select>
             </div>
             
+            {canCreerModifierBudget && (
             <button
               onClick={() => {
                 setBudgetAnnee(selectedYear);
@@ -1137,6 +1166,7 @@ export default function Achats({
               <Plus size={16} />
               Allouer Budget
             </button>
+            )}
           </div>
 
           {/* SUMMARY CARDS */}
@@ -1275,8 +1305,9 @@ export default function Achats({
                             {solde.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
                           </td>
                           <td className="text-right">
-                            {budgetObj ? (
+{budgetObj ? (
                               <div className="flex items-center justify-end gap-1.5">
+                                {canCreerModifierBudget && (
                                 <button
                                   onClick={() => handleStartEditBudget(budgetObj)}
                                   className="btn-icon bg-primary-100 dark:bg-primary-800 text-primary-700 hover:bg-blue-500 hover:text-white"
@@ -1284,6 +1315,8 @@ export default function Achats({
                                 >
                                   <PenTool size={11} />
                                 </button>
+                                )}
+                                {canSupprimerBudget && (
                                 <button
                                   onClick={() => handleDeleteBudget(budgetObj.id)}
                                   className="btn-icon bg-primary-100 dark:bg-primary-800 text-red-500 hover:bg-red-500 hover:text-white"
@@ -1291,8 +1324,10 @@ export default function Achats({
                                 >
                                   <Trash2 size={11} />
                                 </button>
+                                )}
                               </div>
-                            ) : (
+			    ) : (
+                              canCreerModifierBudget && (
                               <button
                                 onClick={() => {
                                   setBudgetAnnee(selectedYear);
@@ -1307,6 +1342,7 @@ export default function Achats({
                                 <Plus size={10} />
                                 Configurer
                               </button>
+                              )
                             )}
                           </td>
                         </tr>
@@ -1385,14 +1421,17 @@ export default function Achats({
               </div>
             </div>
 
-            <div className="flex gap-2">
+<div className="flex gap-2">
+              {canSupprimerFournisseur && (
               <button
                 onClick={handleDeleteSupplier}
-                className={`btn-secondary text-red-500 border-red-200 ${userRole === 'Technicien' ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50'}`}
-                title={userRole === 'Technicien' ? "Suppression réservée aux Managers (Accès restreint)" : "Supprimer ce partenaire"}
+                className="btn-secondary text-red-500 border-red-200 hover:bg-red-50"
+                title="Supprimer ce partenaire"
               >
                 <Trash2 size={14} />
               </button>
+              )}
+{canCreerModifierFournisseur && (
               <button
                 onClick={handleStartEdit}
                 className="btn-primary"
@@ -1401,6 +1440,7 @@ export default function Achats({
                 <PenTool size={14} />
                 Modifier
               </button>
+              )}
             </div>
           </div>
 

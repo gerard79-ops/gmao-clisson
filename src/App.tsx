@@ -1779,6 +1779,8 @@ if (!authUser) {
 
               {activeModule === 'achats' && (
                 <Achats
+		  currentRole={currentUserProfile?.role || userRole}
+                  permissionsMatrix={db.permissionsMatrix}
                   suppliers={db.suppliers}
                   commandes={db.commandes}
                   settings={db.settings}
