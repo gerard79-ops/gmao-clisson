@@ -218,25 +218,23 @@ export default function RapportIntervention({
   }, [crActivite, crTechno, crCause, crRemede, crOperateur, crImputation, crText, crMo, crArret, crStatut, selectedParts, crPhotoUrl, selectedIntId]);
 
   // Handle signature pad drawing
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
+
     ctx.beginPath();
-    
-    // Support touch devices
-    let clientX, clientY;
-    if ('touches' in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-      const rect = canvas.getBoundingClientRect();
-      ctx.moveTo(clientX - rect.left, clientY - rect.top);
-    } else {
-      ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-    }
-    
+
+    // Support touch devices + mise à l'échelle (le canvas affiché peut être
+    // plus grand/petit que sa résolution interne, d'où le décalage sinon)
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    ctx.moveTo((clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY);
+
     setIsDrawing(true);
     setHasSigned(true);
   };
@@ -252,16 +250,13 @@ export default function RapportIntervention({
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#0F172A'; // Navy Blue
 
-    let clientX, clientY;
-    if ('touches' in e) {
-      if (e.touches.length === 0) return;
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-      const rect = canvas.getBoundingClientRect();
-      ctx.lineTo(clientX - rect.left, clientY - rect.top);
-    } else {
-      ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-    }
+    if ('touches' in e && e.touches.length === 0) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    ctx.lineTo((clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY);
     ctx.stroke();
   };
 
