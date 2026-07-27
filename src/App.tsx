@@ -1799,6 +1799,8 @@ if (!authUser) {
 
               {activeModule === 'reporting' && (
                 <Reporting
+		  currentRole={currentUserProfile?.role || userRole}
+                  permissionsMatrix={db.permissionsMatrix}
                   equipements={db.equipements}
                   interventions={db.interventions}
                   pieces={db.pieces}

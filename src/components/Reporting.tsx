@@ -5,6 +5,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
+import { hasPermission, PermissionsMatrix } from '../permissionsConfig';
 import {
   BarChart,
   Bar,
@@ -58,6 +59,8 @@ import { Equipement, Intervention, Piece, GlobalSettings, GammePreventive, Compt
 import { ModuleHelp } from './ModuleHelp';
 
 interface ReportingProps {
+  currentRole: string;
+  permissionsMatrix: PermissionsMatrix;
   equipements: Equipement[];
   interventions: Intervention[];
   pieces: Piece[];
@@ -104,6 +107,8 @@ const parseHours = (hoursStr: string | undefined): number => {
 };
 
 export default function Reporting({
+  currentRole,
+  permissionsMatrix,
   equipements,
   interventions,
   pieces,
@@ -113,7 +118,12 @@ export default function Reporting({
   onAddIntervention,
   onAddCompteur
 }: ReportingProps) {
+
   // State filters
+const canGenererAudit = hasPermission(permissionsMatrix, currentRole, 'reporting', 'auditRapport');
+  const canExporterReporting = hasPermission(permissionsMatrix, currentRole, 'reporting', 'exporter');
+  const canCreerDepuisAnalyse = hasPermission(permissionsMatrix, currentRole, 'reporting', 'creerDepuisAnalyse');
+ const canProgrammerEnvoi = hasPermission(permissionsMatrix, currentRole, 'reporting', 'programmerEnvoi');
   const [period, setPeriod] = useState<'3' | '6' | '12' | 'custom' | 'all'>('6');
   const [customStartDate, setCustomStartDate] = useState<string>(() => {
     const d = new Date();
@@ -2079,6 +2089,7 @@ export default function Reporting({
 
         {/* QUICK REPORT ACTION BUTTONS */}
         <div className="flex items-center gap-2 print:hidden">
+{canGenererAudit && (
           <button
             onClick={handleGenerateAuditReport}
             disabled={isGeneratingAudit}
@@ -2091,7 +2102,9 @@ export default function Reporting({
             )}
             <span>{isGeneratingAudit ? "Compilation..." : "Générer rapport d'audit"}</span>
           </button>
+          )}
 
+          {canExporterReporting && (
           <button
             onClick={handleCSVExport}
             className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 transition cursor-pointer"
@@ -2099,7 +2112,9 @@ export default function Reporting({
             <FileSpreadsheet size={15} />
             <span>Exporter CSV</span>
           </button>
+          )}
 
+          {canExporterReporting && (
           <button
             onClick={handlePDFExport}
             disabled={isExportingPDF}
@@ -2112,7 +2127,7 @@ export default function Reporting({
             )}
             <span>{isExportingPDF ? "Génération PDF..." : "Exporter PDF"}</span>
           </button>
-          
+          )}          
           <button
             onClick={handlePrint}
             className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-primary-700 bg-primary-100 dark:bg-primary-800 dark:text-primary-300 rounded-lg hover:bg-primary-200 transition cursor-pointer"
@@ -2121,6 +2136,7 @@ export default function Reporting({
             <span>Imprimer le Rapport</span>
           </button>
 
+{canProgrammerEnvoi && (
           <button
             onClick={() => setIsScheduleModalOpen(true)}
             className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 dark:bg-indigo-950/20 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 transition cursor-pointer border border-indigo-200 dark:border-indigo-800/40 shadow-sm"
@@ -2131,6 +2147,7 @@ export default function Reporting({
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             )}
           </button>
+          )}
         </div>
       </div>
 
@@ -4069,6 +4086,7 @@ export default function Reporting({
                           )}
                         </td>
                         <td className="py-3 px-4 text-center">
+{canCreerDepuisAnalyse && (
                           <button
                             onClick={() => handleOpenParetoBTModal(eq)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-lg shadow-sm hover:shadow transition cursor-pointer"
@@ -4076,6 +4094,7 @@ export default function Reporting({
                             <Wrench size={12} />
                             <span>Planifier Préventif</span>
                           </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -4320,6 +4339,7 @@ export default function Reporting({
 
                     {/* Actions bar inside card */}
                     <div className="flex items-center gap-2 pt-3 border-t border-primary-100 dark:border-primary-800/40">
+{canCreerDepuisAnalyse && (
                       <button
                         onClick={() => handleOpenBTModal(alert)}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
@@ -4333,6 +4353,7 @@ export default function Reporting({
                         <Wrench size={13} />
                         <span>Suggérer BT</span>
                       </button>
+                      )}
 
                       <button
                         onClick={() => handleOpenCounterModal(alert)}
@@ -4910,6 +4931,7 @@ export default function Reporting({
               </div>
 
               <div className="flex items-center gap-2">
+{canExporterReporting && (
                 <button
                   onClick={handleAuditPDFExport}
                   disabled={isExportingAuditPDF}
@@ -4922,6 +4944,7 @@ export default function Reporting({
                   )}
                   <span>{isExportingAuditPDF ? "Génération PDF..." : "Télécharger PDF d'Audit"}</span>
                 </button>
+                )}
                 <button
                   onClick={() => setIsAuditModalOpen(false)}
                   className="p-1.5 hover:bg-primary-100 dark:hover:bg-primary-800 rounded-lg text-primary-400 dark:text-primary-500 hover:text-primary-800 transition"
