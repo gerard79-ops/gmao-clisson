@@ -445,9 +445,9 @@ const canCreerModifierPiece = hasPermission(permissionsMatrix, currentRole, 'mag
     setSelectedPieceId(null);
   };
 
-  const handleDelete = () => {
-    if (userRole === 'Technicien') {
-      alert("🔐 Accès refusé : Seul un Manager est autorisé à supprimer des pièces de rechange.");
+const handleDelete = () => {
+    if (!canSupprimerPiece) {
+      alert("🔐 Accès refusé : vous n'avez pas la permission de supprimer des pièces de rechange.");
       return;
     }
     if (!selectedPieceId) return;

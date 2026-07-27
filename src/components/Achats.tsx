@@ -711,9 +711,9 @@ const canCreerCommande = hasPermission(permissionsMatrix, currentRole, 'achats',
     setShowSupplierForm(true);
   };
 
-  const handleDeleteSupplier = () => {
-    if (userRole === 'Technicien') {
-      alert("🔐 Accès refusé : Seul un Manager est autorisé à supprimer des partenaires/fournisseurs.");
+const handleDeleteSupplier = () => {
+    if (!canSupprimerFournisseur) {
+      alert("🔐 Accès refusé : vous n'avez pas la permission de supprimer des partenaires/fournisseurs.");
       return;
     }
     if (!selectedSupplierId) return;
@@ -760,9 +760,9 @@ const canCreerCommande = hasPermission(permissionsMatrix, currentRole, 'achats',
     setShowBudgetForm(false);
   };
 
-  const handleDeleteBudget = (id: string) => {
-    if (userRole === 'Technicien') {
-      alert("🔐 Accès refusé : Seul un Manager est autorisé à supprimer des enveloppes budgétaires.");
+const handleDeleteBudget = (id: string) => {
+    if (!canSupprimerBudget) {
+      alert("🔐 Accès refusé : vous n'avez pas la permission de supprimer des enveloppes budgétaires.");
       return;
     }
     if (confirm("⚠️ Êtes-vous sûr de vouloir supprimer cette enveloppe budgétaire ?")) {

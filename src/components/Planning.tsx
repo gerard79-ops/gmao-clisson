@@ -217,9 +217,9 @@ const canCreerModifierGamme = hasPermission(permissionsMatrix, currentRole, 'pla
     setShowGammeForm(false);
   };
 
-  const handleDeleteGamme = (id: string) => {
-    if (userRole === 'Technicien') {
-      alert("🔐 Accès refusé : Seul un Manager est autorisé à supprimer des gammes de maintenance.");
+const handleDeleteGamme = (id: string) => {
+    if (!canSupprimerGamme) {
+      alert("🔐 Accès refusé : vous n'avez pas la permission de supprimer des gammes de maintenance.");
       return;
     }
     if (confirm("⚠️ Souhaitez-vous supprimer définitivement cette gamme de maintenance préventive ?")) {

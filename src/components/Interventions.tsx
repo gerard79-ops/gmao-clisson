@@ -1571,7 +1571,7 @@ export default function Interventions({
                         </div>
                       </div>
 
-                      {userRole === 'Technicien' ? (
+			{!canTraiterBon ? (
                         <p className="text-xs text-amber-600 font-semibold bg-amber-100/50 dark:bg-amber-900/30 p-3 rounded-lg">
                           🔒 Ce bon de travail est verrouillé en attente de signature par le Responsable Technique. Vous serez notifié une fois validé.
                         </p>
