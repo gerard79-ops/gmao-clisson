@@ -7,6 +7,7 @@ import React, { useState, FormEvent, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import { GlobalSettings, Equipement, Intervention, Piece, AuditLog, NotificationPreference } from '../types';
+import { hasPermission, PermissionsMatrix } from '../permissionsConfig';
 import {
   dbSaveEquipement,
   dbDeleteEquipement,
@@ -51,6 +52,8 @@ import {
 } from 'lucide-react';
 
 interface ReglagesProps {
+  currentRole: string;
+  permissionsMatrix: PermissionsMatrix;
   settings: GlobalSettings;
   onUpdateSettings: (payload: Partial<GlobalSettings>) => void;
   onResetDatabase: () => void;
@@ -64,6 +67,8 @@ interface ReglagesProps {
 }
 
 export default function Reglages({
+  currentRole,
+  permissionsMatrix,
   settings,
   onUpdateSettings,
   onResetDatabase,
@@ -75,7 +80,13 @@ export default function Reglages({
   auditLogs,
   userRole
 }: ReglagesProps) {
+
   // Lists editors states
+const canRaccourcis = hasPermission(permissionsMatrix, currentRole, 'parametres', 'raccourcis');
+  const canCompetences = hasPermission(permissionsMatrix, currentRole, 'parametres', 'competences');
+  const canImportExportParams = hasPermission(permissionsMatrix, currentRole, 'parametres', 'importExport');
+  const canPurger = hasPermission(permissionsMatrix, currentRole, 'parametres', 'purger');
+  const canExportSecurite = hasPermission(permissionsMatrix, currentRole, 'parametres', 'exportSecurite');
   const [activeSubTab, setActiveSubTab] = useState<'options' | 'access' | 'data' | 'csv' | 'security' | 'competences' | 'notifications' | 'referentiel'>('referentiel');
   const [newAtelier, setNewAtelier] = useState('');
   const [newMetier, setNewMetier] = useState('');
@@ -1908,7 +1919,8 @@ export default function Reglages({
                 })}
               </div>
 
-              <div className="flex gap-2.5 pt-2">
+<div className="flex gap-2.5 pt-2">
+                {canRaccourcis && (
                 <button
                   type="button"
                   onClick={handleSaveShortcuts}
@@ -1916,6 +1928,8 @@ export default function Reglages({
                 >
                   <Check size={14} /> Enregistrer
                 </button>
+                )}
+                {canRaccourcis && (
                 <button
                   type="button"
                   onClick={handleResetShortcuts}
@@ -1923,6 +1937,7 @@ export default function Reglages({
                 >
                   Défauts
                 </button>
+                )}
               </div>
             </div>
           </div>
@@ -1939,12 +1954,14 @@ export default function Reglages({
             <p className="text-[11px] text-primary-500 leading-relaxed">
               Exportez d'un clic l'ensemble de votre base locale (paramètres, nomenclatures, historiques d'intervention) sous la forme d'un fichier JSON.
             </p>
+{canImportExportParams && (
             <button
               onClick={handleExport}
               className="btn-primary justify-center w-full bg-emerald-600 hover:bg-emerald-700"
             >
               <Download size={14} /> Télécharger la sauvegarde
             </button>
+            )}
           </div>
 
           {/* Import Box */}
@@ -1961,8 +1978,8 @@ export default function Reglages({
                   rows={4}
                   value={backupText}
                   onChange={e => setBackupText(e.target.value)}
-                  placeholder={userRole === 'Technicien' ? "Action réservée aux Managers" : '{"GMAO_SETTINGS": ..., "GMAO_EQUIPEMENTS": ...}'}
-                  disabled={userRole === 'Technicien'}
+placeholder={!canImportExportParams ? "Action réservée aux Managers" : '{"GMAO_SETTINGS": ..., "GMAO_EQUIPEMENTS": ...}'}
+                  disabled={!canImportExportParams}
                   className="font-mono text-[10px] bg-primary-50 disabled:opacity-50"
                 />
               </div>
@@ -1976,7 +1993,7 @@ export default function Reglages({
 
               <button
                 type="submit"
-                disabled={userRole === 'Technicien'}
+                disabled={!canImportExportParams}
                 className="btn-primary w-full justify-center bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Démarrer la restauration
@@ -1994,10 +2011,10 @@ export default function Reglages({
             </div>
             <button
               onClick={handlePurge}
-              disabled={userRole === 'Technicien'}
+              disabled={!canPurger}
               className="btn-primary bg-red-600 hover:bg-red-700 justify-center whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RefreshCw size={14} /> {userRole === 'Technicien' ? "Réinitialisation désactivée" : "Purger et Réinitialiser"}
+              <RefreshCw size={14} /> {!canPurger ? "Réinitialisation désactivée" : "Purger et Réinitialiser"}
             </button>
           </div>
         </div>
@@ -2393,18 +2410,18 @@ export default function Reglages({
             </div>
 
             {/* Input to add competence */}
-            <div className="flex gap-2">
+<div className="flex gap-2">
               <input
                 type="text"
-                placeholder={userRole === 'Technicien' ? "Modification réservée aux Managers" : "Nouvelle compétence (ex: Robotique ABB, Consign. Gaz)..."}
+                placeholder={!canCompetences ? "Modification réservée aux Managers" : "Nouvelle compétence (ex: Robotique ABB, Consign. Gaz)..."}
                 value={newCompetence}
                 onChange={e => setNewCompetence(e.target.value)}
-                disabled={userRole === 'Technicien'}
+                disabled={!canCompetences}
                 className="text-xs flex-1 disabled:opacity-50 disabled:bg-primary-100 dark:disabled:bg-primary-950/40"
               />
               <button
                 onClick={handleAddCompetence}
-                disabled={userRole === 'Technicien' || !newCompetence.trim()}
+                disabled={!canCompetences || !newCompetence.trim()}
                 className="btn-primary py-1.5 px-3.5 disabled:opacity-50 disabled:cursor-not-allowed text-xs flex items-center gap-1"
                 title="Ajouter au catalogue"
               >
@@ -2440,11 +2457,11 @@ export default function Reglages({
                           </span>
                         </div>
                       </div>
-                      <button
+<button
                         onClick={() => handleRemoveCompetence(skill)}
-                        disabled={userRole === 'Technicien'}
+                        disabled={!canCompetences}
                         className="text-red-500 hover:text-red-700 disabled:opacity-30 disabled:cursor-not-allowed p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition"
-                        title={userRole === 'Technicien' ? "Accès restreint" : "Supprimer la compétence"}
+                        title={!canCompetences ? "Accès restreint" : "Supprimer la compétence"}
                       >
                         <Trash2 size={13} />
                       </button>
@@ -2502,16 +2519,16 @@ export default function Reglages({
                             {competencesList.map(skill => {
                               const hasSkill = techSkills.includes(skill);
                               return (
-                                <button
+<button
                                   key={skill}
                                   onClick={() => handleToggleTechSkill(techName, skill)}
-                                  disabled={userRole === 'Technicien'}
+                                  disabled={!canCompetences}
                                   className={`text-[10px] px-2 py-0.5 rounded-full font-semibold transition border ${
                                     hasSkill
                                       ? "bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-900/40 font-bold"
                                       : "bg-white dark:bg-primary-800 text-primary-400 dark:text-primary-500 border-primary-200 dark:border-primary-700/60 hover:bg-primary-100/30"
-                                  } ${userRole === 'Technicien' ? 'cursor-not-allowed opacity-70' : ''}`}
-                                  title={userRole === 'Technicien' ? "Lecture seule" : `Cliquer pour ${hasSkill ? 'retirer' : 'ajouter'} cette compétence`}
+                                  } ${!canCompetences ? 'cursor-not-allowed opacity-70' : ''}`}
+                                  title={!canCompetences ? "Lecture seule" : `Cliquer pour ${hasSkill ? 'retirer' : 'ajouter'} cette compétence`}
                                 >
                                   {skill}
                                 </button>
@@ -2809,6 +2826,7 @@ export default function Reglages({
 
               <div className="flex items-center gap-2 flex-wrap">
                 {/* EXPORT PDF BUTTON */}
+{canExportSecurite && (
                 <button
                   type="button"
                   onClick={handleExportSecurityPDF}
@@ -2818,6 +2836,7 @@ export default function Reglages({
                   <FileText size={13} />
                   <span>Exporter PDF (Conformité)</span>
                 </button>
+                )}
 
                 {/* TEST TRIGGER: Log a simulated suspicious test */}
                 <button

@@ -1814,6 +1814,8 @@ if (!authUser) {
 
               {activeModule === 'reglages' && (
                 <Reglages
+		  currentRole={currentUserProfile?.role || userRole}
+                  permissionsMatrix={db.permissionsMatrix}
                   settings={db.settings}
                   onUpdateSettings={handleUpdateSettings}
                   onResetDatabase={resetFirestoreDatabase}
