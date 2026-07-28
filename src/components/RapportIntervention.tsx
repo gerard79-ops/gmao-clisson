@@ -228,6 +228,10 @@ const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<
 
     // Support touch devices + mise à l'échelle (le canvas affiché peut être
     // plus grand/petit que sa résolution interne, d'où le décalage sinon)
+if ('touches' in e) {
+      e.preventDefault();
+    }
+
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     const rect = canvas.getBoundingClientRect();
@@ -250,7 +254,10 @@ const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#0F172A'; // Navy Blue
 
-    if ('touches' in e && e.touches.length === 0) return;
+if ('touches' in e) {
+      if (e.touches.length === 0) return;
+      e.preventDefault();
+    }
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     const rect = canvas.getBoundingClientRect();
@@ -1209,7 +1216,7 @@ const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<
                       </div>
 
                       <div className="bg-white rounded-xl border border-primary-200 dark:border-primary-800 overflow-hidden shadow-inner relative h-32">
-                        <canvas
+<canvas
                           ref={canvasRef}
                           width={600}
                           height={128}
@@ -1221,6 +1228,7 @@ const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<
                           onTouchMove={draw}
                           onTouchEnd={stopDrawing}
                           className="w-full h-full cursor-crosshair block"
+                          style={{ touchAction: 'none' }}
                         />
                         {!hasSigned && (
                           <div className="absolute inset-0 flex items-center justify-center text-primary-400 select-none pointer-events-none text-[11px] font-mono italic">
