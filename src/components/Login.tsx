@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
-import { Lock, Mail, AlertTriangle, Loader2, KeyRound, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, Mail, AlertTriangle, Loader2, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import logoGroupe from '../assets/logo-groupe-clisson.png';
 
 interface LoginProps {
   onLoginSuccess: (email: string) => void;
@@ -74,50 +75,103 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-slate-800 p-8 rounded-2xl border border-slate-700/60 shadow-2xl relative overflow-hidden">
+    <div className="min-h-screen flex flex-col lg:flex-row font-sans">
 
-        {/* Decorative background subtle glow */}
-        <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+      {/* ===== LEFT PANEL — BRAND ===== */}
+      <div
+        className="relative lg:w-[42%] flex flex-col items-center justify-center px-8 py-10 lg:py-0 overflow-hidden"
+        style={{ background: 'linear-gradient(160deg, #142B4D 0%, #0A1730 100%)' }}
+      >
+        {/* Brushed-metal texture: fine diagonal hairlines, very subtle */}
+        <div
+          className="absolute inset-0 opacity-[0.05] pointer-events-none"
+          style={{
+            backgroundImage: 'repeating-linear-gradient(115deg, #ffffff 0px, #ffffff 1px, transparent 1px, transparent 14px)'
+          }}
+        />
+        {/* Soft radial glow behind the logo */}
+        <div
+          className="absolute w-[520px] h-[520px] rounded-full pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, rgba(249,115,22,0.10) 0%, rgba(249,115,22,0) 70%)'
+          }}
+        />
 
-        <div className="text-center relative">
-          <div className="mx-auto h-12 w-12 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-            <KeyRound className="h-6 w-6 text-white" />
-          </div>
-          <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-white">
-            GMAO Pro
-          </h2>
-          <p className="mt-2 text-sm text-slate-400">
-            Portail de connexion sécurisé
+        <div className="relative flex flex-col items-center max-w-sm text-center">
+          <img
+            src={logoGroupe}
+            alt="Groupe Clisson"
+            className="w-full max-w-[300px] h-auto rounded-2xl shadow-2xl shadow-black/40"
+          />
+          <p
+            className="mt-8 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400"
+          >
+            Clisson Métal · Laseris · Atlantique Armatures
+          </p>
+          <p className="mt-3 text-sm text-slate-400 leading-relaxed">
+            Portail de Gestion de Maintenance Assistée par Ordinateur
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 flex items-start gap-2 text-xs text-red-400 animate-fadeIn">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
-              <div className="space-y-1">
-                <span className="font-semibold block">Erreur de connexion :</span>
-                <span>{error}</span>
+        <p className="hidden lg:block absolute bottom-6 text-[10px] text-slate-500 tracking-wide">
+          © {new Date().getFullYear()} Groupe Clisson — Accès réservé aux collaborateurs
+        </p>
+      </div>
+
+      {/* ===== SEAM — signature laser line ===== */}
+      <div className="hidden lg:block relative w-px">
+        <div
+          className="absolute inset-y-0 left-0 w-px"
+          style={{
+            background: 'linear-gradient(180deg, transparent 0%, #F97316 20%, #F97316 80%, transparent 100%)',
+            boxShadow: '0 0 12px 1px rgba(249,115,22,0.55)'
+          }}
+        />
+      </div>
+
+      {/* ===== RIGHT PANEL — FORM ===== */}
+      <div className="flex-1 flex items-center justify-center bg-white px-6 py-12 sm:px-10">
+        <div className="w-full max-w-sm">
+
+          <div className="mb-9">
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent-orange">
+              GMAO Pro
+            </span>
+            <h1
+              className="mt-2 text-2xl font-bold text-slate-900"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              Connexion à votre espace
+            </h1>
+           <p className="mt-2 text-sm text-slate-600">
+              Entrez vos identifiants pour accéder au portail de maintenance.
+            </p>
+          </div>
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            {error && (
+              <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-start gap-2.5 text-xs text-red-700">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-semibold block">Erreur de connexion</span>
+                  <span>{error}</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {successMessage && (
-            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 flex items-start gap-2 text-xs text-emerald-400 animate-fadeIn">
-              <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
-              <span>{successMessage}</span>
-            </div>
-          )}
+            {successMessage && (
+              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 flex items-start gap-2.5 text-xs text-emerald-700">
+                <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
+                <span>{successMessage}</span>
+              </div>
+            )}
 
-          <div className="space-y-4">
             <div>
-              <label htmlFor="email-address" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+<label htmlFor="email-address" className="block text-xs font-bold text-slate-800 mb-1.5">
                 Adresse e-mail
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                   <Mail className="h-4 w-4 text-slate-400" />
                 </div>
                 <input
@@ -128,18 +182,28 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-700 rounded-xl bg-slate-900/60 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition text-sm"
-                  placeholder="exemple@gmaopro.com"
+                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-orange/40 focus:border-accent-orange focus:bg-white transition text-sm"
+                  placeholder="vous@groupeclisson.fr"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Mot de passe
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+<label htmlFor="password" className="block text-xs font-bold text-slate-800">
+                  Mot de passe
+                </label>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={resetLoading}
+                  className="text-[11px] text-accent-orange hover:text-accent-orange-hover font-semibold transition disabled:opacity-50 cursor-pointer"
+                >
+                  {resetLoading ? 'Envoi...' : 'Mot de passe oublié ?'}
+                </button>
+              </div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                   <Lock className="h-4 w-4 text-slate-400" />
                 </div>
                 <input
@@ -150,13 +214,13 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-2.5 border border-slate-700 rounded-xl bg-slate-900/60 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition text-sm"
+                  className="block w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent-orange/40 focus:border-accent-orange focus:bg-white transition text-sm"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition cursor-pointer"
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition cursor-pointer"
                   title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                   tabIndex={-1}
                 >
@@ -164,37 +228,27 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 </button>
               </div>
             </div>
-          </div>
 
-          <div className="text-right">
-            <button
-              type="button"
-              onClick={handleForgotPassword}
-              disabled={resetLoading}
-              className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold transition disabled:opacity-50 cursor-pointer"
-            >
-              {resetLoading ? 'Envoi en cours...' : 'Mot de passe oublié ?'}
-            </button>
-          </div>
-
-          <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition cursor-pointer shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-white bg-accent-orange hover:bg-accent-orange-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-orange transition cursor-pointer shadow-sm shadow-orange-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
-                <span className="flex items-center gap-2">
+                <>
                   <Loader2 className="animate-spin h-4 w-4" />
                   Connexion en cours...
-                </span>
+                </>
               ) : (
                 'Se connecter'
               )}
             </button>
-          </div>
-        </form>
+          </form>
 
+          <p className="mt-8 text-[11px] text-slate-400 text-center lg:hidden">
+            © {new Date().getFullYear()} Groupe Clisson — Accès réservé aux collaborateurs
+          </p>
+        </div>
       </div>
     </div>
   );

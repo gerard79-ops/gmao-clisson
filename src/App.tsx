@@ -1247,11 +1247,9 @@ const handleSavePermissionsMatrix = async (matrix: typeof db.permissionsMatrix) 
 
 if (!authUser) {
     return (
-      <div className={effectiveThemeMode === 'dark' ? 'dark' : ''}>
-        <Login onLoginSuccess={(email) => {
-          triggerInAppNotification(`Bienvenue, ${email}.`, "success");
-        }} />
-      </div>
+      <Login onLoginSuccess={(email) => {
+        triggerInAppNotification(`Bienvenue, ${email}.`, "success");
+      }} />
     );
   }
   if (mustChangePassword && authUser) {
