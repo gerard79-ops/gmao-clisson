@@ -38,7 +38,8 @@ import {
   dbSaveUtilisateur,
   dbDeleteUtilisateur,
   dbDeleteAuditLog,
-  dbSavePermissionsMatrix
+  dbSavePermissionsMatrix,
+  dbDeleteAllInCollection
 } from './firebaseSync';
 import {
   GlobalSettings,
@@ -833,6 +834,10 @@ const handleSavePermissionsMatrix = async (matrix: typeof db.permissionsMatrix) 
     }
   };
 
+const handleDeleteCollection = async (collectionName: string): Promise<number> => {
+    return await dbDeleteAllInCollection(collectionName);
+  };
+
   const handleDeleteAuditLog = async (id: string) => {
     try {
       await dbDeleteAuditLog(id);
@@ -1267,14 +1272,7 @@ if (!authUser) {
       {/* GLOBAL HEADER BAR */}
       {!isFullScreen && (
         <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-primary-900 border-b border-primary-200 dark:border-primary-800 z-50 px-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-800 text-primary-500 lg:hidden"
-            >
-              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
-            
+<div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="h-8 w-8 rounded-lg bg-accent-orange flex items-center justify-center font-display font-extrabold text-white text-base shadow-sm">
                 G
@@ -1321,6 +1319,30 @@ if (!authUser) {
                   )}
                 </div>
               )}
+            </div>
+
+{/* Accès directs portails externes */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  const url = window.location.origin + window.location.pathname + '#/portal-terrain';
+                  window.open(url, '_blank');
+                }}
+                className="p-1.5 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/30 text-teal-600 dark:text-teal-400 flex items-center justify-center cursor-pointer transition-colors"
+                title="Ouvrir le portail terrain (mobile)"
+              >
+                <QrCode size={18} />
+              </button>
+              <button
+                onClick={() => {
+                  const url = window.location.origin + window.location.pathname + '#/portal-di';
+                  window.open(url, '_blank');
+                }}
+                className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 text-accent-orange flex items-center justify-center cursor-pointer transition-colors"
+                title="Ouvrir le portail DI (atelier)"
+              >
+                <ClipboardList size={18} />
+              </button>
             </div>
 
             {/* Quick theme togglers */}
@@ -1526,85 +1548,43 @@ if (!authUser) {
         </div>
       )}
 
-      {/* SIDEBAR NAVIGATION */}
-      <aside className={`fixed top-16 bottom-0 left-0 w-64 bg-white dark:bg-primary-900 border-r border-primary-200 dark:border-primary-800 z-40 transition-transform duration-300 overflow-y-auto ${isFullScreen ? '-translate-x-full lg:-translate-x-full' : 'lg:translate-x-0 ' + (sidebarOpen ? 'translate-x-0' : '-translate-x-full')}`}>
-        <nav className="p-3 lg:p-2.5 space-y-1 lg:space-y-0.5 text-xs">
-          
-          {/* ACCÈS DIRECTS PORTAILS EXTERNES EN HAUT POUR VISIBILITÉ MAXIMALE */}
-          <div className="pb-2.5 mb-2.5 border-b border-primary-200 dark:border-primary-800 flex flex-col gap-1.5">
-            <div className="text-[10px] uppercase tracking-wider font-extrabold text-primary-400 dark:text-primary-500 px-1 mb-0.5">
-              Accès Directs Externes
-            </div>
-
-            <button
-              onClick={() => {
-                const url = window.location.origin + window.location.pathname + '#/portal-terrain';
-                window.open(url, '_blank');
-                setSidebarOpen(false);
-              }}
-              className="w-full flex items-center justify-between px-3 lg:px-2.5 py-2 lg:py-1.5 rounded-lg font-bold text-teal-600 dark:text-teal-400 bg-teal-500/5 dark:bg-teal-500/10 hover:bg-teal-500/10 transition duration-150 border border-teal-500/25 cursor-pointer text-left shadow-xs"
-              title="Ouvrir le portail terrain indépendant pour techniciens mobiles et tablettes"
-            >
-              <div className="flex items-center gap-2">
-                <QrCode size={14} className="text-teal-500 dark:text-teal-400" />
-                <span className="text-[11px] font-extrabold">Portail Terrain (Mobile)</span>
-              </div>
-              <span className="text-[7.5px] uppercase font-bold bg-teal-500 text-white px-1.5 py-0.5 rounded-sm">Ext</span>
-            </button>
-
-            <button
-              onClick={() => {
-                const url = window.location.origin + window.location.pathname + '#/portal-di';
-                window.open(url, '_blank');
-                setSidebarOpen(false);
-              }}
-              className="w-full flex items-center justify-between px-3 lg:px-2.5 py-2 lg:py-1.5 rounded-lg font-bold text-accent-orange bg-amber-500/5 dark:bg-amber-500/10 hover:bg-amber-500/10 transition duration-150 border border-amber-500/25 cursor-pointer text-left shadow-xs"
-              title="Ouvrir le portail d'auto-signalement externe pour l'atelier dans un nouvel onglet"
-            >
-              <div className="flex items-center gap-2">
-                <ClipboardList size={14} className="text-accent-orange" />
-                <span className="text-[11px] font-extrabold">Portail DI (Atelier)</span>
-              </div>
-              <span className="text-[7.5px] uppercase font-bold bg-accent-orange text-white px-1.5 py-0.5 rounded-sm">Ext</span>
-            </button>
+{/* STICKY MODULE NAVIGATION */}
+      {!isFullScreen && (
+        <nav className="fixed top-16 left-0 right-0 h-12 bg-white dark:bg-primary-900 border-b border-primary-200 dark:border-primary-800 z-40 overflow-x-auto lg:overflow-visible">
+          <div className="flex items-center h-full px-3 gap-1 lg:gap-0.5 min-w-max lg:min-w-0 lg:justify-between lg:px-4">
+            {[
+              { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+              { id: 'equipements', label: 'Équipements', icon: Wrench },
+              { id: 'cartographie', label: 'Cartographie', icon: Map },
+              { id: 'interventions', label: 'Bons de Travail', icon: ClipboardList },
+              { id: 'rapport-intervention', label: "Rapport d'Intervention", icon: FileCheck },
+              { id: 'magasin', label: 'Magasin & Stocks', icon: Warehouse },
+              { id: 'planning', label: 'Planning Préventif', icon: CalendarDays },
+              { id: 'achats', label: 'Achats / S-T', icon: ShoppingBag },
+              { id: 'reporting', label: 'Reporting', icon: BarChart3 },
+              { id: 'administration', label: 'Administration', icon: ShieldCheck },
+              { id: 'reglages', label: 'Configuration', icon: SlidersHorizontal },
+              { id: 'guide', label: "Mode d'emploi", icon: BookOpen }
+            ].filter(m => m.id !== 'administration' || isRealAdmin).map(m => {
+              const Icon = m.icon;
+              const active = activeModule === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setActiveModule(m.id as any)}
+                  className={`shrink-0 flex items-center gap-1.5 lg:gap-1 px-3 py-2 lg:px-2 lg:py-1.5 rounded-lg font-bold text-xs lg:text-[10.5px] whitespace-nowrap transition duration-150 ${active ? 'bg-accent-orange text-white shadow-sm' : 'text-primary-500 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-850 hover:text-primary-800'}`}
+                >
+                  <Icon size={14} className="lg:w-[13px] lg:h-[13px]" />
+                  <span>{m.label}</span>
+                </button>
+              );
+            })}
           </div>
-
-	  {[
-            { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-            { id: 'portail-terrain', label: 'Portail Terrain (Scan QR)', icon: QrCode },
-            { id: 'equipements', label: 'Parc Équipements', icon: Wrench },
-            { id: 'cartographie', label: 'Cartographie', icon: Map },
-            { id: 'interventions', label: 'Bons de Travail', icon: ClipboardList },
-            { id: 'rapport-intervention', label: "Rapport d'Intervention", icon: FileCheck },
-            { id: 'magasin', label: 'Magasin & Stocks', icon: Warehouse },
-            { id: 'planning', label: 'Planning Préventif', icon: CalendarDays },
-            { id: 'achats', label: 'Achats / S-T', icon: ShoppingBag },
-            { id: 'reporting', label: 'Reporting & Analyse', icon: BarChart3 },
-            { id: 'administration', label: 'Administration', icon: ShieldCheck },
-            { id: 'reglages', label: 'Configuration', icon: SlidersHorizontal },
-            { id: 'guide', label: "Mode d'emploi", icon: BookOpen }
-          ].filter(m => m.id !== 'administration' || isRealAdmin).map(m => {
-            const Icon = m.icon;
-            const active = activeModule === m.id;
-            return (
-              <button
-                key={m.id}
-                onClick={() => {
-                  setActiveModule(m.id as any);
-                  setSidebarOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 px-3 lg:px-2.5 py-2 lg:py-1.5 rounded-md font-bold transition duration-150 ${active ? 'bg-accent-orange text-white shadow-sm' : 'text-primary-500 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-850 hover:text-primary-800'}`}
-              >
-                <Icon size={14} />
-                <span className="text-[11px] lg:text-[11.5px]">{m.label}</span>
-              </button>
-            );
-          })}
         </nav>
-      </aside>
+      )}
 
       {/* MAIN CONTAINER CONTENT */}
-      <main className={`transition-all duration-300 ${isFullScreen ? 'lg:pl-0 pt-4' : 'lg:pl-64 pt-20'} p-4 min-h-screen`}>
+<main className={`transition-all duration-300 ${isFullScreen ? 'pt-4' : 'pt-28'} p-4 min-h-screen`}>
         <div className={`max-w-7xl mx-auto ${isFullScreen ? 'pb-4' : 'pb-16'}`}>
           <AnimatePresence mode="wait">
             <motion.div
@@ -1814,6 +1794,7 @@ if (!authUser) {
                 <Reglages
 		  currentRole={currentUserProfile?.role || userRole}
                   permissionsMatrix={db.permissionsMatrix}
+		  onDeleteCollection={handleDeleteCollection}
                   settings={db.settings}
                   onUpdateSettings={handleUpdateSettings}
                   onResetDatabase={resetFirestoreDatabase}

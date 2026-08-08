@@ -11,6 +11,7 @@ import {
   setDoc,
   deleteDoc,
   getDoc,
+  getDocs,
   writeBatch
 } from 'firebase/firestore';
 import {
@@ -404,6 +405,22 @@ export const dbDeleteUtilisateur = async (id: string) => {
 
 export const resetFirestoreDatabase = async () => {
   await deleteDoc(doc(db, 'settings', 'global'));
+};
+
+// Supprime tous les documents d'une collection Firestore, par lots de 450
+// (limite technique Firestore : 500 opérations max par batch)
+export const dbDeleteAllInCollection = async (collectionName: string): Promise<number> => {
+  const snap = await getDocs(collection(db, collectionName));
+  const docsToDelete = snap.docs;
+  let deletedCount = 0;
+  for (let i = 0; i < docsToDelete.length; i += 450) {
+    const chunk = docsToDelete.slice(i, i + 450);
+    const batch = writeBatch(db);
+    chunk.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    deletedCount += chunk.length;
+  }
+  return deletedCount;
 };
 
 export const importBackupToFirestore = async (backup: GMAODatabase) => {

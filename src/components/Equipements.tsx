@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { hasPermission, PermissionsMatrix } from '../permissionsConfig';
@@ -3101,9 +3101,9 @@ export default function Equipements({
       setExpandedNodes(prev => ({ ...prev, [node.id]: val }));
     };
 
+const rowRef = useRef<HTMLDivElement>(null);
     const isSelected = selectedId === node.id;
     const isHS = node.statut === 'HS';
-
     const isDragged = draggedId === node.id;
     const isOver = dragOverId === node.id;
 
@@ -3193,14 +3193,30 @@ export default function Equipements({
               node: node
             });
           }}
-          className={`group flex items-center justify-between p-2 rounded-lg cursor-grab active:cursor-grabbing transition-all duration-200 transform hover:scale-[1.015] hover:shadow-xs ${borderStyle}`}
+className={`group flex items-center justify-between p-2 rounded-lg cursor-grab active:cursor-grabbing transition-all duration-200 transform hover:scale-[1.015] hover:shadow-xs ${borderStyle}`}
+          ref={rowRef}
         >
           <div className="flex items-center gap-2 min-w-0">
             {hasChildren ? (
               <button
-                onClick={(e) => {
+onClick={(e) => {
                   e.stopPropagation();
-                  setIsOpen(!isOpen);
+                  const nextOpen = !isOpen;
+                  setIsOpen(nextOpen);
+                  if (nextOpen) {
+                    requestAnimationFrame(() => {
+                      requestAnimationFrame(() => {
+                        const container = document.querySelector('.arborescence-tree-container') as HTMLElement | null;
+                        const row = rowRef.current;
+                        if (container && row) {
+                          const containerRect = container.getBoundingClientRect();
+                          const rowRect = row.getBoundingClientRect();
+                          const offset = rowRect.top - containerRect.top + container.scrollTop;
+                          container.scrollTo({ top: Math.max(offset - 8, 0), behavior: 'smooth' });
+                        }
+                      });
+                    });
+                  }
                 }}
                 className="text-primary-400 hover:text-accent-orange p-0.5 rounded transition"
               >

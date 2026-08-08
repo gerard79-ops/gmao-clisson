@@ -54,6 +54,7 @@ import {
 interface ReglagesProps {
   currentRole: string;
   permissionsMatrix: PermissionsMatrix;
+  onDeleteCollection: (collectionName: string) => Promise<number>;
   settings: GlobalSettings;
   onUpdateSettings: (payload: Partial<GlobalSettings>) => void;
   onResetDatabase: () => void;
@@ -69,6 +70,7 @@ interface ReglagesProps {
 export default function Reglages({
   currentRole,
   permissionsMatrix,
+  onDeleteCollection,
   settings,
   onUpdateSettings,
   onResetDatabase,
@@ -87,6 +89,43 @@ const canRaccourcis = hasPermission(permissionsMatrix, currentRole, 'parametres'
   const canImportExportParams = hasPermission(permissionsMatrix, currentRole, 'parametres', 'importExport');
   const canPurger = hasPermission(permissionsMatrix, currentRole, 'parametres', 'purger');
   const canExportSecurite = hasPermission(permissionsMatrix, currentRole, 'parametres', 'exportSecurite');
+const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
+
+  const SELECTIVE_DELETE_CATEGORIES = [
+    { key: 'interventions', label: 'Interventions' },
+    { key: 'pieces', label: 'Stock (pièces)' },
+    { key: 'mouvements', label: 'Mouvements de stock' },
+    { key: 'equipements', label: 'Équipements' },
+    { key: 'gammes', label: 'Gammes préventives' },
+    { key: 'compteurs', label: 'Compteurs' },
+    { key: 'suppliers', label: 'Fournisseurs' },
+    { key: 'commandes', label: 'Commandes' },
+    { key: 'budgets', label: 'Budgets' },
+    { key: 'documents', label: 'Documents (GED)' },
+    { key: 'audit_logs', label: "Journal d'audit" }
+  ];
+
+  const handleSelectiveDelete = async (key: string, label: string) => {
+    if (!canPurger) {
+      alert("🔐 Accès refusé : vous n'avez pas la permission de supprimer ces données.");
+      return;
+    }
+    const typed = prompt(`⚠️ Cette action supprimera DÉFINITIVEMENT toutes les données de la catégorie "${label}".\n\nTapez SUPPRIMER en majuscules pour confirmer :`);
+    if (typed !== 'SUPPRIMER') {
+      if (typed !== null) alert("Suppression annulée : le mot de confirmation ne correspond pas.");
+      return;
+    }
+    setDeletingCategory(key);
+    try {
+      const count = await onDeleteCollection(key);
+      logSecurityAction("Suppression sélective", `Suppression de la catégorie "${label}" (${count} élément(s)).`, "eleve");
+      alert(`✅ ${count} élément(s) supprimé(s) dans "${label}".`);
+    } catch (e: any) {
+      alert(`Erreur lors de la suppression : ${e.message || e}`);
+    } finally {
+      setDeletingCategory(null);
+    }
+  };
   const [activeSubTab, setActiveSubTab] = useState<'options' | 'access' | 'data' | 'csv' | 'security' | 'competences' | 'notifications' | 'referentiel'>('referentiel');
   const [newAtelier, setNewAtelier] = useState('');
   const [newMetier, setNewMetier] = useState('');
@@ -2016,6 +2055,33 @@ placeholder={!canImportExportParams ? "Action réservée aux Managers" : '{"GMAO
             >
               <RefreshCw size={14} /> {!canPurger ? "Réinitialisation désactivée" : "Purger et Réinitialiser"}
             </button>
+          </div>
+{/* Suppression sélective par catégorie */}
+          <div className="card md:col-span-3 border-l-4 border-l-amber-500 bg-amber-50/10">
+            <h3 className="font-bold text-sm text-amber-700 dark:text-amber-500">Suppression sélective par catégorie</h3>
+            <p className="text-xs text-primary-500 dark:text-primary-400 mt-1 mb-4 max-w-2xl leading-relaxed">
+              Effacez uniquement les données d'une catégorie précise, sans toucher au reste de la base (les comptes collaborateurs ne sont jamais concernés par cet outil).
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {SELECTIVE_DELETE_CATEGORIES.map((cat) => (
+                <div
+                  key={cat.key}
+                  className="flex items-center justify-between gap-2 px-3 py-2.5 bg-white dark:bg-primary-900 border border-primary-200 dark:border-primary-800 rounded-xl"
+                >
+                  <span className="text-xs font-semibold text-primary-700 dark:text-primary-200">
+                    {cat.label}
+                  </span>
+                  <button
+                    onClick={() => handleSelectiveDelete(cat.key, cat.label)}
+                    disabled={!canPurger || deletingCategory === cat.key}
+                    className="text-[10px] font-bold px-2.5 py-1.5 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    <Trash2 size={11} />
+                    {deletingCategory === cat.key ? '...' : 'Supprimer'}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
