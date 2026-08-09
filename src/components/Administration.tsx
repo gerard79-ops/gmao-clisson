@@ -119,6 +119,8 @@ const togglePermission = (moduleKey: string, actionKey: string, role: string) =>
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<Utilisateur | null>(null);
   const [isSavingUser, setIsSavingUser] = useState(false);
+ const [tempPasswordInfo, setTempPasswordInfo] = useState<{ nom: string; email: string; password: string } | null>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
   const [newUserForm, setNewUserForm] = useState({
   
     prenom: '',
@@ -235,12 +237,14 @@ if (isSavingUser) return; // empêche un double envoi
             droits: newUserForm.droits
           })
         });
-        const data = await res.json();
+const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Erreur lors de la création.");
-        triggerNotification(
-          `Compte créé pour ${newUserForm.prenom} ${newUserForm.nom}. Mot de passe temporaire : ${data.tempPassword} (à communiquer, à faire changer dès la première connexion).`,
-          'success'
-        );
+        setTempPasswordInfo({
+          nom: `${newUserForm.prenom} ${newUserForm.nom}`,
+          email: newUserForm.email,
+          password: data.tempPassword
+        });
+        triggerNotification(`Compte créé pour ${newUserForm.prenom} ${newUserForm.nom}.`, 'success');
       }
       setShowUserModal(false);
       setEditingUser(null);
@@ -274,12 +278,14 @@ const handleResetPassword = async (u: Utilisateur) => {
         method: 'POST',
         headers: await getAuthHeaders()
       });
-      const data = await res.json();
+const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur lors de la réinitialisation.");
-      triggerNotification(
-        `Mot de passe réinitialisé pour ${u.prenom} ${u.nom}. Nouveau mot de passe : ${data.newPassword} (à communiquer, à faire changer à la prochaine connexion).`,
-        'success'
-      );
+      setTempPasswordInfo({
+        nom: `${u.prenom} ${u.nom}`,
+        email: u.email,
+        password: data.newPassword
+      });
+      triggerNotification(`Mot de passe réinitialisé pour ${u.prenom} ${u.nom}.`, 'success');
     } catch (err: any) {
       triggerNotification(err.message || "Une erreur est survenue.", 'warn');
     }
@@ -2434,8 +2440,59 @@ const handleResetPassword = async (u: Utilisateur) => {
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+</AnimatePresence>
 
+      {/* TEMPORARY PASSWORD MODAL — reste affichée tant qu'elle n'est pas fermée explicitement */}
+      <AnimatePresence>
+        {tempPasswordInfo && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-primary-900 border-2 border-accent-orange rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Key size={18} className="text-accent-orange" />
+                <h2 className="text-lg font-bold font-display text-primary-800 dark:text-white">
+                  Mot de passe temporaire
+                </h2>
+              </div>
+              <p className="text-xs text-primary-500 dark:text-primary-400 mb-4">
+                Notez-le maintenant et communiquez-le à <strong>{tempPasswordInfo.nom}</strong> ({tempPasswordInfo.email}).
+                Il ne sera plus jamais affiché après la fermeture de cette fenêtre.
+              </p>
+
+              <div className="flex items-center gap-2 bg-primary-50 dark:bg-primary-950 border border-primary-200 dark:border-primary-800 rounded-xl p-3 mb-5">
+                <code className="flex-1 font-mono text-sm font-bold text-primary-900 dark:text-white break-all">
+                  {tempPasswordInfo.password}
+                </code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(tempPasswordInfo.password);
+                    setCopiedPassword(true);
+                    setTimeout(() => setCopiedPassword(false), 2000);
+                  }}
+                  className="shrink-0 px-2.5 py-1.5 bg-accent-orange hover:bg-accent-orange-hover text-white text-[10px] font-bold rounded-lg flex items-center gap-1 transition"
+                >
+                  {copiedPassword ? <Check size={12} /> : <Key size={12} />}
+                  {copiedPassword ? 'Copié' : 'Copier'}
+                </button>
+              </div>
+
+              <button
+                onClick={() => {
+                  setTempPasswordInfo(null);
+                  setCopiedPassword(false);
+                }}
+                className="w-full py-2.5 bg-primary-800 hover:bg-primary-900 dark:bg-primary-700 dark:hover:bg-primary-600 text-white font-bold text-xs rounded-xl transition"
+              >
+                J'ai noté le mot de passe, fermer
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
