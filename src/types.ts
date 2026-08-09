@@ -39,6 +39,7 @@ export interface Intervention {
   urgence: string;
   typeProbleme: string;
   demandeur: string;
+  destinataire?: string;
   description: string;
   statut: 'En attente' | 'En cours' | 'En attente de pièce' | 'Soldé' | 'Clôturé' | 'Brouillon' | 'En attente de validation' | 'Terminé';
   dateCreation: string;

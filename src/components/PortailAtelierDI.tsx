@@ -20,13 +20,14 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
-import { Equipement, Intervention, GlobalSettings } from '../types';
+import { Equipement, Intervention, GlobalSettings, Utilisateur } from '../types';
 import EquipmentTreeSelect from './EquipmentTreeSelect';
 
 interface PortailAtelierDIProps {
   equipements: Equipement[];
   interventions: Intervention[];
   settings: GlobalSettings;
+  utilisateurs: Utilisateur[];
   onAddIntervention: (payload: Omit<Intervention, 'id' | 'dateCreation'>) => void;
 }
 
@@ -34,10 +35,12 @@ export default function PortailAtelierDI({
   equipements,
   interventions,
   settings,
+  utilisateurs,
   onAddIntervention
 }: PortailAtelierDIProps) {
   // Form state
   const [demandeur, setDemandeur] = useState('');
+  const [destinataire, setDestinataire] = useState('');
   const [selectedAtelier, setSelectedAtelier] = useState('');
   const [selectedEquipementId, setSelectedEquipementId] = useState('');
   const [typeProbleme, setTypeProbleme] = useState('');
@@ -110,10 +113,9 @@ export default function PortailAtelierDI({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!demandeur.trim() || !selectedAtelier || !selectedEquipementId || !typeProbleme || !description.trim()) {
+if (!demandeur.trim() || !destinataire || !selectedAtelier || !selectedEquipementId || !typeProbleme || !description.trim()) {
       return;
     }
-
     setSubmitting(true);
     
     // Find selected equipment details
@@ -128,6 +130,7 @@ export default function PortailAtelierDI({
       urgence: urgency,
       typeProbleme: typeProbleme,
       demandeur: demandeur.trim(),
+      destinataire: destinataire,
       description: description.trim(),
       statut: 'En attente' as const,
       source: 'Portail Atelier DI',
@@ -137,9 +140,10 @@ export default function PortailAtelierDI({
     setTimeout(() => {
       onAddIntervention(payload);
       
-      // Clear form
+// Clear form
       setDescription('');
       setCodeDefaut('');
+      setDestinataire('');
       
       // Trigger success screen/toast
       setSubmitting(false);
@@ -251,7 +255,7 @@ export default function PortailAtelierDI({
                     <User size={12} className="text-primary-400" />
                     Demandeur / Opérateur <span className="text-red-500">*</span>
                   </label>
-                  <input
+<input
                     type="text"
                     required
                     value={demandeur}
@@ -259,6 +263,29 @@ export default function PortailAtelierDI({
                     placeholder="Saisissez votre Prénom Nom ou matricule"
                     className="w-full px-4 py-3 rounded-xl bg-primary-50 dark:bg-primary-950 border border-primary-200 dark:border-primary-800 text-sm text-primary-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-orange/40 focus:border-accent-orange transition"
                   />
+                </div>
+
+                {/* DESTINATAIRE */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-primary-500 dark:text-primary-400 mb-2 flex items-center gap-1.5">
+                    <Send size={12} className="text-primary-400" />
+                    Envoyer la demande à <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={destinataire}
+                    onChange={(e) => setDestinataire(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-primary-50 dark:bg-primary-950 border border-primary-200 dark:border-primary-800 text-sm text-primary-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-orange/40 focus:border-accent-orange transition cursor-pointer"
+                  >
+                    <option value="">-- Sélectionner un destinataire --</option>
+                    {[...utilisateurs]
+                      .sort((a, b) => `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`))
+                      .map((u) => (
+                        <option key={u.id} value={`${u.prenom} ${u.nom}`}>
+                          {u.prenom} {u.nom} — {u.role}
+                        </option>
+                      ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -497,9 +524,9 @@ export default function PortailAtelierDI({
                         <p className="text-[11px] text-primary-500 dark:text-primary-400 truncate mt-0.5">
                           {di.description}
                         </p>
-                        <div className="flex items-center justify-between gap-2 mt-2">
+<div className="flex items-center justify-between gap-2 mt-2">
                           <span className="text-[10px] text-primary-400 font-medium truncate">
-                            Par : {di.demandeur}
+                            Par : {di.demandeur}{di.destinataire ? ` → ${di.destinataire}` : ''}
                           </span>
                           <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${badge.bg} ${badge.text}`}>
                             {badge.label}
@@ -577,10 +604,16 @@ export default function PortailAtelierDI({
                       {new Date(selectedDi.dateCreation).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  <div>
+<div>
                     <span className="text-primary-400 font-bold uppercase text-[9px] block mb-1">Demandeur</span>
                     <span className="font-medium text-primary-800 dark:text-white">{selectedDi.demandeur}</span>
                   </div>
+                  {selectedDi.destinataire && (
+                    <div>
+                      <span className="text-primary-400 font-bold uppercase text-[9px] block mb-1">Destinataire</span>
+                      <span className="font-medium text-primary-800 dark:text-white">{selectedDi.destinataire}</span>
+                    </div>
+                  )}
                   <div>
                     <span className="text-primary-400 font-bold uppercase text-[9px] block mb-1">Atelier</span>
                     <span className="font-medium text-primary-800 dark:text-white">{selectedDi.atelier}</span>

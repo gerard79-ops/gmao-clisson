@@ -1212,10 +1212,11 @@ const handleDeleteCollection = async (collectionName: string): Promise<number> =
   if (isAtelierPortal) {
     return (
       <div className={effectiveThemeMode === 'dark' ? 'dark' : ''}>
-        <PortailAtelierDI
+<PortailAtelierDI
           equipements={db.equipements}
           interventions={db.interventions}
           settings={db.settings}
+          utilisateurs={db.utilisateurs}
           onAddIntervention={handleAddIntervention}
         />
       </div>
