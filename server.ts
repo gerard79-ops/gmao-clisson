@@ -307,6 +307,64 @@ app.post("/api/users/me/password-changed", requireAuth, async (req, res) => {
   }
 });
 
+// Envoie un e-mail via Resend
+async function sendEmail(to: string, subject: string, html: string) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY non configurée côté serveur.");
+  }
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: process.env.RESEND_FROM_EMAIL || "GMAO Pro <onboarding@resend.dev>",
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Échec de l'envoi de l'e-mail : ${errText}`);
+  }
+  return response.json();
+}
+
+// Notifie par e-mail le destinataire d'une nouvelle demande d'intervention
+app.post("/api/notify/demande-intervention", requireAuth, async (req, res) => {
+  try {
+    const { destinataireEmail, destinataireNom, demandeur, atelier, equipementNom, typeProbleme, description, urgence } = req.body;
+    if (!destinataireEmail) {
+      return res.status(400).json({ error: "Adresse e-mail du destinataire manquante." });
+    }
+    const subject = `Nouvelle demande d'intervention — ${equipementNom || 'Équipement'}`;
+    const html = `
+      <div style="font-family: sans-serif; max-width: 560px; margin: auto;">
+        <h2 style="color:#0F1F3D;">Nouvelle demande d'intervention</h2>
+        <p>Bonjour ${destinataireNom || ''},</p>
+        <p>Une nouvelle demande d'intervention vient d'être soumise depuis le Portail Atelier.</p>
+        <table style="width:100%; border-collapse: collapse; font-size: 14px;">
+          <tr><td style="padding:4px 0; color:#64748b;">Demandeur</td><td style="padding:4px 0; font-weight:bold;">${demandeur || '-'}</td></tr>
+          <tr><td style="padding:4px 0; color:#64748b;">Atelier</td><td style="padding:4px 0; font-weight:bold;">${atelier || '-'}</td></tr>
+          <tr><td style="padding:4px 0; color:#64748b;">Équipement</td><td style="padding:4px 0; font-weight:bold;">${equipementNom || '-'}</td></tr>
+          <tr><td style="padding:4px 0; color:#64748b;">Type de problème</td><td style="padding:4px 0; font-weight:bold;">${typeProbleme || '-'}</td></tr>
+          <tr><td style="padding:4px 0; color:#64748b;">Urgence</td><td style="padding:4px 0; font-weight:bold;">${urgence || '-'}</td></tr>
+        </table>
+        <p style="margin-top:16px;"><strong>Description :</strong><br/>${(description || '').replace(/\n/g, '<br/>')}</p>
+        <p style="margin-top:24px; font-size:12px; color:#94a3b8;">Connectez-vous à GMAO Pro pour traiter cette demande.</p>
+      </div>
+    `;
+    await sendEmail(destinataireEmail, subject, html);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Email notification error:", error);
+    res.status(500).json({ error: error.message || "Erreur lors de l'envoi de la notification." });
+  }
+});
+
 // ===================== FIN ADMIN SDK =====================
 
 

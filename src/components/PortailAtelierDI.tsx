@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Equipement, Intervention, GlobalSettings, Utilisateur } from '../types';
 import EquipmentTreeSelect from './EquipmentTreeSelect';
+import { auth } from '../firebase';
 
 interface PortailAtelierDIProps {
   equipements: Equipement[];
@@ -111,15 +112,40 @@ export default function PortailAtelierDI({
     }).sort((a, b) => new Date(b.dateCreation).getTime() - new Date(a.dateCreation).getTime());
   }, [workshopDIs, statusFilter, searchQuery]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-if (!demandeur.trim() || !destinataire || !selectedAtelier || !selectedEquipementId || !typeProbleme || !description.trim()) {
+    if (!demandeur.trim() || !destinataire || !selectedAtelier || !selectedEquipementId || !typeProbleme || !description.trim()) {
       return;
     }
+
     setSubmitting(true);
-    
+
     // Find selected equipment details
     const equip = equipements.find(eq => eq.id === selectedEquipementId);
+
+    // Envoi de la notification par e-mail (ne bloque pas la création de la demande)
+    const destinataireUser = utilisateurs.find(u => `${u.prenom} ${u.nom}` === destinataire);
+    if (destinataireUser?.email) {
+      auth.currentUser?.getIdToken().then((token) => {
+        fetch('/api/notify/demande-intervention', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            destinataireEmail: destinataireUser.email,
+            destinataireNom: `${destinataireUser.prenom} ${destinataireUser.nom}`,
+            demandeur: demandeur.trim(),
+            atelier: selectedAtelier,
+            equipementNom: equip?.nom || '',
+            typeProbleme,
+            description: description.trim(),
+	    urgence: urgency,
+          }),
+        }).catch((err) => console.error('Erreur envoi notification email:', err));
+      });
+    }
     
     const payload = {
       typeDoc: 'DI' as const,
