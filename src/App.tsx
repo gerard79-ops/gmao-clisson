@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   loadDatabase,
@@ -1030,28 +1030,30 @@ const handleDeleteCollection = async (collectionName: string): Promise<number> =
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [db.settings?.shortcuts]);
 
+  // Mémoire persistante des alertes déjà émises, indépendante de la liste
+  // affichée (limitée à 10) — évite la boucle infinie quand il y a plus de
+  // 10 alertes actives en même temps.
+  const notifiedKeysRef = useRef<Set<string>>(new Set());
+
   // Auto-scanning thresholds to create reactive notifications (e.g. stock level alarm, pending preventive)
   useEffect(() => {
     const lowStockAlerts = db.pieces.filter(p => p.quantite <= p.seuil);
-    if (lowStockAlerts.length > 0) {
-      lowStockAlerts.forEach(p => {
-        // Trigger one-time notify
-        const exists = notifications.some(n => n.title.includes(p.designation));
-        if (!exists) {
-          triggerInAppNotification(`Alerte réapprovisionnement : ${p.designation} (${p.quantite} pcs restantes)`, 'warn');
-        }
-      });
-    }
+    lowStockAlerts.forEach(p => {
+      const key = `stock-${p.id}`;
+      if (!notifiedKeysRef.current.has(key)) {
+        notifiedKeysRef.current.add(key);
+        triggerInAppNotification(`Alerte réapprovisionnement : ${p.designation} (${p.quantite} pcs restantes)`, 'warn');
+      }
+    });
 
     const criticalMachines = db.equipements.filter(eq => eq.criticite === 'Haute' && eq.etat === 'En Panne');
-    if (criticalMachines.length > 0) {
-      criticalMachines.forEach(m => {
-        const exists = notifications.some(n => n.title.includes(m.nom));
-        if (!exists) {
-          triggerInAppNotification(`Machine critique en panne : ${m.nom} dans l'atelier ${m.atelier}`, 'warn');
-        }
-      });
-    }
+    criticalMachines.forEach(m => {
+      const key = `machine-${m.id}`;
+      if (!notifiedKeysRef.current.has(key)) {
+        notifiedKeysRef.current.add(key);
+        triggerInAppNotification(`Machine critique en panne : ${m.nom} dans l'atelier ${m.atelier}`, 'warn');
+      }
+    });
 
     // Auto-scanning preventive alert options (e.g. 48h before due date)
     const today = new Date();
@@ -1068,11 +1070,11 @@ const handleDeleteCollection = async (collectionName: string): Promise<number> =
             }
             safety++;
           }
-          
+
           const diffMs = simulatedDate.getTime() - today.getTime();
           const diffHours = diffMs / (1000 * 60 * 60);
           const limitHours = g.delaiAlerteHeures || 48;
-          
+
           if (diffHours > 0 && diffHours <= limitHours) {
             const dateStr = simulatedDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
             const alertText = g.typeAlerte === 'email'
@@ -1080,9 +1082,10 @@ const handleDeleteCollection = async (collectionName: string): Promise<number> =
               : g.typeAlerte === 'both'
                 ? `🔄 [Push + E-mail à ${g.destinataireAlerte || 'l\'équipe'}] Intervention préventive imminente (sous ${limitHours}h) : ${g.titre} sur ${g.equipementNom} (${dateStr})`
                 : `🔔 [Alerte Push] Intervention de maintenance préventive planifiée sous ${limitHours}h : ${g.titre} sur ${g.equipementNom} (${dateStr})`;
-            
-            const exists = notifications.some(n => n.title.includes(g.titre) && n.title.includes(g.equipementNom));
-            if (!exists) {
+
+            const key = `gamme-alerte-${g.id}`;
+            if (!notifiedKeysRef.current.has(key)) {
+              notifiedKeysRef.current.add(key);
               triggerInAppNotification(alertText, 'info');
             }
           }
@@ -1109,20 +1112,21 @@ const handleDeleteCollection = async (collectionName: string): Promise<number> =
             const toleranceDays = g.toleranceJoursPasDeBt || 7;
             const toleranceMs = toleranceDays * 24 * 60 * 60 * 1000;
             const limitTime = lastDueDate.getTime() + toleranceMs;
-            
+
             if (today.getTime() > limitTime) {
               // Check if any intervention has been created for this gamme since lastDueDate (minus 2 days of grace for early creation)
-              const hasBt = (db.interventions || []).some(i => 
-                i.gammeId === g.id && 
+              const hasBt = (db.interventions || []).some(i =>
+                i.gammeId === g.id &&
                 new Date(i.dateCreation).getTime() >= (lastDueDate!.getTime() - 2 * 24 * 60 * 60 * 1000)
               );
 
               if (!hasBt) {
                 const dateStr = lastDueDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 const alertText = `⚠️ [Prévention Oubli] Aucun Bon de Travail n'a été créé pour la gamme "${g.titre}" sur "${g.equipementNom}" (Échéance du ${dateStr}, tolérance de ${toleranceDays} jours dépassée)`;
-                
-                const exists = notifications.some(n => n.title.includes(`Aucun Bon de Travail n'a été créé pour la gamme "${g.titre}"`));
-                if (!exists) {
+
+                const key = `gamme-oubli-${g.id}`;
+                if (!notifiedKeysRef.current.has(key)) {
+                  notifiedKeysRef.current.add(key);
                   triggerInAppNotification(alertText, 'warn');
                 }
               }
@@ -1131,7 +1135,7 @@ const handleDeleteCollection = async (collectionName: string): Promise<number> =
         }
       }
     });
-  }, [db.pieces, db.equipements, db.gammes, db.interventions, notifications]);
+  }, [db.pieces, db.equipements, db.gammes, db.interventions]);
 
   // Global search lookup handler
   const getGlobalSearchResults = () => {
