@@ -34,6 +34,7 @@ import {
   Search,
   User,
   Check,
+  X,
   CalendarDays,
   Bell,
   Mail,
@@ -90,11 +91,28 @@ const canCreerModifierGamme = hasPermission(permissionsMatrix, currentRole, 'pla
   const [calendarDate, setCalendarDate] = useState(new Date());
 
   // Enhanced Calendar & Weekly View states
-  const [viewMode, setViewMode] = useState<'mois' | 'semaine' | 'gantt'>('mois');
-  const [filterType, setFilterType] = useState<'all' | 'DI' | 'BT' | 'Preventif' | 'Previsionnel'>('all');
+const [viewMode, setViewMode] = useState<'mois' | 'semaine' | 'gantt' | 'annee' | 'suivi'>('mois');
+const [filterType, setFilterType] = useState<'all' | 'DI' | 'BT' | 'Preventif' | 'Previsionnel'>('all');
   const [filterUrgency, setFilterUrgency] = useState<'all' | 'mineur' | 'moyen' | 'critique'>('all');
-  const [filterAtelier, setFilterAtelier] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+const [filterAtelier, setFilterAtelier] = useState<string>('');
+const [searchQuery, setSearchQuery] = useState<string>('');
+const [periodStart, setPeriodStart] = useState<string>('');
+  const [periodEnd, setPeriodEnd] = useState<string>('');
+  const [filterFamille, setFilterFamille] = useState<string>('');
+  const [filterActivite, setFilterActivite] = useState<string>('');
+  const [filterImportanceSuivi, setFilterImportanceSuivi] = useState<'all' | 'Haute' | 'Normale'>('all');
+  const [filterOccurrenceType, setFilterOccurrenceType] = useState<'all' | 'Jours' | 'Mois' | 'Compteur'>('all');
+  const [seuilProchainsJours, setSeuilProchainsJours] = useState<number>(30);
+  const [searchEquipementSuivi, setSearchEquipementSuivi] = useState<string>('');
+const [suiviContextMenu, setSuiviContextMenu] = useState<{ x: number; y: number; gamme: GammePreventive } | null>(null);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!suiviContextMenu) return;
+    const closeMenu = () => setSuiviContextMenu(null);
+    window.addEventListener('click', closeMenu);
+    return () => window.removeEventListener('click', closeMenu);
+  }, [suiviContextMenu]);
   
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
@@ -361,8 +379,12 @@ const handleDeleteGamme = (id: string) => {
         if (filterUrgency === 'critique' && !(uLower.includes('crit') || uLower.includes('arr'))) return false;
       }
 
-      // Filter by Atelier
+// Filter by Atelier
       if (filterAtelier && e.atelier !== filterAtelier) return false;
+
+      // Filter by custom date period
+      if (periodStart && e.date < periodStart) return false;
+      if (periodEnd && e.date > periodEnd) return false;
 
       // Filter by Search Query
       if (searchQuery) {
@@ -375,10 +397,10 @@ const handleDeleteGamme = (id: string) => {
 
       return true;
     });
-  }, [allEvents, filterType, filterUrgency, filterAtelier, searchQuery]);
+}, [allEvents, filterType, filterUrgency, filterAtelier, searchQuery, periodStart, periodEnd]);
 
   // Get events in the current monthly view scope
-  const currentMonthEvents = useMemo(() => {
+const currentMonthEvents = useMemo(() => {
     const curYear = calendarDate.getFullYear();
     const curMonth = calendarDate.getMonth();
     return filteredEvents.filter(e => {
@@ -386,6 +408,97 @@ const handleDeleteGamme = (id: string) => {
       return d.getFullYear() === curYear && d.getMonth() === curMonth;
     });
   }, [filteredEvents, calendarDate]);
+
+  const currentYearEvents = useMemo(() => {
+    const curYear = calendarDate.getFullYear();
+    return filteredEvents.filter(e => new Date(e.date).getFullYear() === curYear);
+  }, [filteredEvents, calendarDate]);
+
+type SuiviStatus = 'estime' | 'proche' | 'retard' | 'nonrealise' | 'cloture';
+  type SuiviCell = { status: SuiviStatus; intervention?: Intervention };
+
+  const suiviGammesRows = useMemo(() => {
+    const year = calendarDate.getFullYear();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31);
+
+    return gammes
+      .map(g => {
+        const eq = equipements.find(e => e.id === g.equipementId);
+        const importance: 'Haute' | 'Normale' = eq?.critique ? 'Haute' : 'Normale';
+        const toleranceDays = g.toleranceJoursPasDeBt || 7;
+
+        const completedInterventions = (interventions || [])
+          .filter(i => i.gammeId === g.id && ['Soldé', 'Clôturé', 'Terminé'].includes(i.statut))
+          .sort((a, b) => new Date(b.dateCloture || b.dateCreation).getTime() - new Date(a.dateCloture || a.dateCreation).getTime());
+        const dernierBon = completedInterventions[0]?.dateCloture || completedInterventions[0]?.dateCreation || null;
+
+const monthStatus: Partial<Record<number, SuiviCell>> = {};
+        let prochain: Date | null = null;
+
+        if ((g.typeDeclencheur === 'Jours' || g.typeDeclencheur === 'Mois') && g.valeurDeclencheur > 0) {
+          let cursor = new Date(g.dateReference);
+          let safety = 0;
+
+          // Rattrape le curseur pour qu'il ne soit pas des années en arrière avant de commencer
+          while (cursor < new Date(year - 2, 0, 1) && safety < 2000) {
+            if (g.typeDeclencheur === 'Jours') cursor.setDate(cursor.getDate() + g.valeurDeclencheur);
+            else cursor.setMonth(cursor.getMonth() + g.valeurDeclencheur);
+            safety++;
+          }
+
+          safety = 0;
+          while (cursor <= yearEnd && safety < 2000) {
+            if (cursor >= yearStart && cursor <= yearEnd) {
+              const occDate = new Date(cursor);
+              const matchingBt = completedInterventions.find(i => {
+                const closeDate = new Date(i.dateCloture || i.dateCreation);
+                const diffDays = Math.abs((closeDate.getTime() - occDate.getTime()) / (1000 * 60 * 60 * 24));
+                return diffDays <= toleranceDays + 20;
+              });
+
+              let status: SuiviStatus;
+              if (matchingBt) {
+                status = 'cloture';
+              } else if (occDate > today) {
+                const diffDays = (occDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+                status = diffDays <= seuilProchainsJours ? 'proche' : 'estime';
+              } else {
+                const diffDays = (today.getTime() - occDate.getTime()) / (1000 * 60 * 60 * 24);
+                status = diffDays <= toleranceDays ? 'retard' : 'nonrealise';
+              }
+              monthStatus[occDate.getMonth()] = { status, intervention: matchingBt };
+            }
+
+            if (!prochain && cursor > today) {
+              prochain = new Date(cursor);
+            }
+
+            if (g.typeDeclencheur === 'Jours') cursor.setDate(cursor.getDate() + g.valeurDeclencheur);
+            else cursor.setMonth(cursor.getMonth() + g.valeurDeclencheur);
+            safety++;
+          }
+        }
+
+        const resteJours = prochain ? Math.round((prochain.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+        return { gamme: g, equipement: eq, importance, dernierBon, prochain, resteJours, monthStatus };
+      })
+      .filter(row => {
+        if (filterFamille && row.equipement?.atelier !== filterFamille) return false;
+        if (filterActivite && row.equipement?.metier !== filterActivite) return false;
+        if (filterImportanceSuivi !== 'all' && row.importance !== filterImportanceSuivi) return false;
+        if (filterOccurrenceType !== 'all' && row.gamme.typeDeclencheur !== filterOccurrenceType) return false;
+        if (searchEquipementSuivi) {
+          const name = (row.equipement?.nom || row.gamme.equipementNom || '').toLowerCase();
+          if (!name.includes(searchEquipementSuivi.toLowerCase())) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => (a.resteJours ?? 999999) - (b.resteJours ?? 999999));
+  }, [gammes, equipements, interventions, calendarDate, filterFamille, filterActivite, filterImportanceSuivi, filterOccurrenceType, searchEquipementSuivi, seuilProchainsJours]);
 
   // Days of the week helper for weekly view
   const getDaysOfWeek = (refDate: Date) => {
@@ -447,12 +560,16 @@ const handleDeleteGamme = (id: string) => {
     setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
   };
 
-  const changeWeek = (offset: number) => {
+const changeWeek = (offset: number) => {
     setCalendarDate(prev => {
       const next = new Date(prev);
       next.setDate(prev.getDate() + offset * 7);
       return next;
     });
+  };
+
+  const changeYear = (offset: number) => {
+    setCalendarDate(prev => new Date(prev.getFullYear() + offset, prev.getMonth(), 1));
   };
 
   // Drag & drop handlers and Gantt helpers
@@ -471,13 +588,20 @@ const handleDeleteGamme = (id: string) => {
     }));
   };
 
-  const handleDropOnCell = (dragDataStr: string, targetDate: string, targetEqId?: string) => {
+const handleDropOnCell = (dragDataStr: string, targetDate: string, targetEqId?: string) => {
     try {
       const dragData = JSON.parse(dragDataStr);
       const { eventId, isPrevisionnel, originDate, originEqId } = dragData;
 
+      // Empêche de déplacer un événement vers la ligne d'un autre équipement
+      // (le glisser-déposer ne doit changer que la date, jamais l'équipement)
+      if (targetEqId && originEqId && targetEqId !== originEqId) {
+        alert("⚠️ Le glisser-déposer permet uniquement de changer la date. Déposez sur la ligne du même équipement.");
+        return;
+      }
+
       // Check if anything actually changed
-      if (originDate === targetDate && (!targetEqId || originEqId === targetEqId)) {
+      if (originDate === targetDate) {
         return; // No change
       }
 
@@ -557,29 +681,28 @@ const handleDeleteGamme = (id: string) => {
     }
   };
 
-  const ganttEquipements = useMemo(() => {
+const ganttEquipements = useMemo(() => {
     return equipements.filter(eq => {
       if (filterAtelier && eq.atelier !== filterAtelier) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        return eq.nom.toLowerCase().includes(q) || eq.id.toLowerCase().includes(q);
+        if (!(eq.nom.toLowerCase().includes(q) || eq.id.toLowerCase().includes(q))) return false;
       }
+      const hasEvents = filteredEvents.some(e => e.equipmentId === eq.id);
+      if (!hasEvents) return false;
       return true;
     });
-  }, [equipements, filterAtelier, searchQuery]);
+  }, [equipements, filterAtelier, searchQuery, filteredEvents]);
 
-  return (
-    <div className="space-y-6">
+return (
+    <div className="space-y-2">
       {/* MODULE HEADER BAR */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-display font-bold text-primary-900 dark:text-white flex items-center">
+          <h1 className="text-lg font-display font-bold text-primary-900 dark:text-white flex items-center gap-1.5">
             Planning Préventif
             <ModuleHelp moduleId="planning" />
           </h1>
-          <p className="text-sm text-primary-500 dark:text-primary-400 mt-1">
-            Gérez vos gammes de maintenance, le planning prévisionnel annuel, et les compteurs d'exploitation.
-          </p>
         </div>
 
 {activeTab === 'gammes' && canCreerModifierGamme && (
@@ -597,19 +720,19 @@ const handleDeleteGamme = (id: string) => {
       <div className="flex items-center gap-4 border-b border-primary-200 dark:border-primary-700">
         <button
           onClick={() => setActiveTab('calendrier')}
-          className={`px-4 py-2 font-display text-sm font-bold border-b-2 transition ${activeTab === 'calendrier' ? 'border-accent-orange text-accent-orange' : 'border-transparent text-primary-400 hover:text-primary-600'}`}
+          className={`px-3 py-1.5 font-display text-xs font-bold border-b-2 transition ${activeTab === 'calendrier' ? 'border-accent-orange text-accent-orange' : 'border-transparent text-primary-400 hover:text-primary-600'}`}
         >
           Planning Annuel (Agenda)
         </button>
         <button
           onClick={() => setActiveTab('gammes')}
-          className={`px-4 py-2 font-display text-sm font-bold border-b-2 transition ${activeTab === 'gammes' ? 'border-accent-orange text-accent-orange' : 'border-transparent text-primary-400 hover:text-primary-600'}`}
+          className={`px-3 py-1.5 font-display text-xs font-bold border-b-2 transition ${activeTab === 'gammes' ? 'border-accent-orange text-accent-orange' : 'border-transparent text-primary-400 hover:text-primary-600'}`}
         >
           Gammes & FMP
         </button>
         <button
           onClick={() => setActiveTab('compteurs')}
-          className={`px-4 py-2 font-display text-sm font-bold border-b-2 transition ${activeTab === 'compteurs' ? 'border-accent-orange text-accent-orange' : 'border-transparent text-primary-400 hover:text-primary-600'}`}
+          className={`px-3 py-1.5 font-display text-xs font-bold border-b-2 transition ${activeTab === 'compteurs' ? 'border-accent-orange text-accent-orange' : 'border-transparent text-primary-400 hover:text-primary-600'}`}
         >
           Compteurs & Relevés
         </button>
@@ -617,99 +740,58 @@ const handleDeleteGamme = (id: string) => {
 
       {/* TAB 1: CALENDAR VIEW */}
       {activeTab === 'calendrier' && (
-        <div className="space-y-6">
-          {/* STATS OVERVIEW SECTION */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-4 bg-white dark:bg-primary-900 rounded-2xl border border-primary-100 dark:border-primary-800 flex items-center gap-4 shadow-sm"
-            >
-              <div className="p-3 bg-accent-orange/10 text-accent-orange rounded-xl">
-                <Clock size={22} />
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-primary-400">Charge {viewMode === 'mois' ? 'Mensuelle' : 'Hebdomadaire'}</span>
-                <h4 className="text-xl font-display font-bold text-primary-900 dark:text-white">
-                  {currentMonthWorkload.toFixed(1)} H
-                </h4>
-              </div>
-            </motion.div>
-
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
-              className="p-4 bg-white dark:bg-primary-900 rounded-2xl border border-primary-100 dark:border-primary-800 flex items-center gap-4 shadow-sm"
-            >
-              <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
-                <CheckCircle size={22} />
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-primary-400">Taux Réalisation Préventif</span>
-                <h4 className="text-xl font-display font-bold text-primary-900 dark:text-white">
-                  {completionRate}%
-                </h4>
-              </div>
-            </motion.div>
-
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="p-4 bg-white dark:bg-primary-900 rounded-2xl border border-primary-100 dark:border-primary-800 flex items-center gap-4 shadow-sm"
-            >
-              <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl">
-                <AlertTriangle size={22} />
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-primary-400">Bons en Retard</span>
-                <h4 className={`text-xl font-display font-bold ${backlogCount > 0 ? 'text-rose-500 font-black animate-pulse' : 'text-primary-900 dark:text-white'}`}>
-                  {backlogCount}
-                </h4>
-              </div>
-            </motion.div>
-
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="p-4 bg-white dark:bg-primary-900 rounded-2xl border border-primary-100 dark:border-primary-800 flex items-center gap-4 shadow-sm"
-            >
-              <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl">
-                <Gauge size={22} />
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-primary-400">Équipements Planifiés</span>
-                <h4 className="text-xl font-display font-bold text-primary-900 dark:text-white">
-                  {plannedEquipmentsCount}
-                </h4>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* ADVANCED MULTI-CRITERIA FILTER BAR */}
-          <div className="p-4 bg-white dark:bg-primary-900 rounded-2xl border border-primary-100 dark:border-primary-800 shadow-sm space-y-3">
-            <div className="flex items-center gap-2 pb-2 border-b border-primary-50 dark:border-primary-850">
-              <Filter size={14} className="text-accent-orange" />
-              <span className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">Filtres du Planning</span>
+        <div className="space-y-2">
+          {/* COMPACT STATS STRIP */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 px-4 py-2 bg-white dark:bg-primary-900 rounded-xl border border-primary-100 dark:border-primary-800 shadow-sm">
+            <div className="flex items-center gap-1.5">
+              <Clock size={13} className="text-accent-orange shrink-0" />
+              <span className="text-[9px] uppercase font-bold text-primary-400">Charge {viewMode === 'mois' ? 'Mens.' : 'Hebdo.'}</span>
+              <span className="text-xs font-display font-bold text-primary-900 dark:text-white">{currentMonthWorkload.toFixed(1)} H</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle size={13} className="text-emerald-500 shrink-0" />
+              <span className="text-[9px] uppercase font-bold text-primary-400">Taux Réal.</span>
+              <span className="text-xs font-display font-bold text-primary-900 dark:text-white">{completionRate}%</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <AlertTriangle size={13} className="text-rose-500 shrink-0" />
+              <span className="text-[9px] uppercase font-bold text-primary-400">Bons en Retard</span>
+              <span className={`text-xs font-display font-bold ${backlogCount > 0 ? 'text-rose-500 font-black' : 'text-primary-900 dark:text-white'}`}>{backlogCount}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Gauge size={13} className="text-indigo-500 shrink-0" />
+              <span className="text-[9px] uppercase font-bold text-primary-400">Équip. Planifiés</span>
+              <span className="text-xs font-display font-bold text-primary-900 dark:text-white">{plannedEquipmentsCount}</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Search bar */}
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-primary-400" size={14} />
-                <input
-                  type="text"
-                  placeholder="Rechercher équipement, titre..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="pl-8 py-1.5 text-xs bg-primary-50 dark:bg-primary-950 rounded-xl border border-primary-100 dark:border-primary-800 w-full"
-                />
-              </div>
+            <button
+              onClick={() => setFiltersExpanded(v => !v)}
+              className="ml-auto flex items-center gap-1.5 text-[10px] font-bold text-primary-500 dark:text-primary-400 hover:text-accent-orange transition"
+            >
+              <Filter size={12} />
+              Filtres
+              {(searchQuery || filterType !== 'all' || filterUrgency !== 'all' || filterAtelier) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-orange" />
+              )}
+              <ChevronRight size={11} className={`transition-transform ${filtersExpanded ? 'rotate-90' : ''}`} />
+            </button>
+          </div>
 
-              {/* Work Type selector */}
-              <div>
+          {/* COLLAPSIBLE FILTER BAR */}
+          {filtersExpanded && (
+            <div className="p-3 bg-white dark:bg-primary-900 rounded-xl border border-primary-100 dark:border-primary-800 shadow-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-primary-400" size={14} />
+                  <input
+                    type="text"
+                    placeholder="Rechercher équipement, titre..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="pl-8 py-1.5 text-xs bg-primary-50 dark:bg-primary-950 rounded-xl border border-primary-100 dark:border-primary-800 w-full"
+                  />
+                </div>
+
                 <select
                   value={filterType}
                   onChange={e => setFilterType(e.target.value as any)}
@@ -721,10 +803,7 @@ const handleDeleteGamme = (id: string) => {
                   <option value="Preventif">Type : Bons de Travail Préventifs</option>
                   <option value="Previsionnel">Type : Prévisionnel (FMP)</option>
                 </select>
-              </div>
 
-              {/* Urgency selector */}
-              <div>
                 <select
                   value={filterUrgency}
                   onChange={e => setFilterUrgency(e.target.value as any)}
@@ -735,10 +814,7 @@ const handleDeleteGamme = (id: string) => {
                   <option value="moyen">Criticité : Moyenne</option>
                   <option value="critique">Criticité : Critique / Arrêt</option>
                 </select>
-              </div>
 
-              {/* Atelier selector */}
-              <div>
                 <select
                   value={filterAtelier}
                   onChange={e => setFilterAtelier(e.target.value)}
@@ -751,7 +827,7 @@ const handleDeleteGamme = (id: string) => {
                 </select>
               </div>
             </div>
-          </div>
+          )}
 
           {/* MAIN CALENDAR STAGE */}
           <div className="p-5 bg-white dark:bg-primary-900 rounded-2xl border border-primary-100 dark:border-primary-800 shadow-sm space-y-4">
@@ -761,11 +837,13 @@ const handleDeleteGamme = (id: string) => {
                 <span className="p-2 bg-primary-50 dark:bg-primary-950 text-accent-orange rounded-xl">
                   {viewMode === 'mois' ? <Calendar size={18} /> : <CalendarDays size={18} />}
                 </span>
-                <div>
+<div>
                   <h3 className="font-display font-extrabold text-base text-primary-900 dark:text-white capitalize">
-                    {viewMode === 'mois' 
+                    {viewMode === 'mois'
                       ? calendarDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
-                      : weekLabel}
+                      : viewMode === 'annee'
+                        ? `Année ${calendarDate.getFullYear()}`
+                        : weekLabel}
                   </h3>
                   <p className="text-[10px] text-primary-400 font-bold uppercase tracking-tight">
                     {filteredEvents.length} événements correspondent aux filtres
@@ -776,7 +854,7 @@ const handleDeleteGamme = (id: string) => {
               {/* View switches and navigation */}
               <div className="flex items-center gap-2 self-end sm:self-auto">
                 {/* Mode Selector */}
-                <div className="flex rounded-xl bg-primary-50 dark:bg-primary-950 p-1 mr-2 text-xs font-bold border border-primary-100 dark:border-primary-850">
+<div className="flex rounded-xl bg-primary-50 dark:bg-primary-950 p-1 mr-2 text-xs font-bold border border-primary-100 dark:border-primary-850">
                   <button
                     onClick={() => setViewMode('mois')}
                     className={`px-3 py-1 rounded-lg transition-all ${viewMode === 'mois' ? 'bg-white dark:bg-primary-900 text-primary-800 dark:text-white shadow-sm' : 'text-primary-400 hover:text-primary-600'}`}
@@ -790,17 +868,55 @@ const handleDeleteGamme = (id: string) => {
                     Semaine
                   </button>
                   <button
+                    onClick={() => setViewMode('annee')}
+                    className={`px-3 py-1 rounded-lg transition-all ${viewMode === 'annee' ? 'bg-white dark:bg-primary-900 text-primary-800 dark:text-white shadow-sm' : 'text-primary-400 hover:text-primary-600'}`}
+                  >
+                    Année
+                  </button>
+<button
                     onClick={() => setViewMode('gantt')}
                     className={`px-3 py-1 rounded-lg transition-all ${viewMode === 'gantt' ? 'bg-white dark:bg-primary-900 text-primary-800 dark:text-white shadow-sm' : 'text-primary-400 hover:text-primary-600'}`}
                   >
                     Planning Gantt
                   </button>
+                  <button
+                    onClick={() => setViewMode('suivi')}
+                    className={`px-3 py-1 rounded-lg transition-all ${viewMode === 'suivi' ? 'bg-white dark:bg-primary-900 text-primary-800 dark:text-white shadow-sm' : 'text-primary-400 hover:text-primary-600'}`}
+                  >
+                    Suivi Gammes
+                  </button>
                 </div>
 
                 {/* Date Controls */}
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 items-center">
+<div className="flex items-center gap-1 bg-primary-50 dark:bg-primary-950 rounded-xl border border-primary-100 dark:border-primary-800 px-2 py-1">
+                    <input
+                      type="date"
+                      value={periodStart}
+                      onChange={(e) => setPeriodStart(e.target.value)}
+                      className="text-[11px] font-bold bg-transparent text-primary-700 dark:text-primary-300 cursor-pointer focus:outline-none"
+                      title="Du"
+                    />
+                    <span className="text-[10px] text-primary-400 font-bold">→</span>
+                    <input
+                      type="date"
+                      value={periodEnd}
+                      onChange={(e) => setPeriodEnd(e.target.value)}
+                      className="text-[11px] font-bold bg-transparent text-primary-700 dark:text-primary-300 cursor-pointer focus:outline-none"
+                      title="Au"
+                    />
+                    {(periodStart || periodEnd) && (
+                      <button
+                        onClick={() => { setPeriodStart(''); setPeriodEnd(''); }}
+                        className="text-primary-400 hover:text-red-500 transition ml-0.5"
+                        title="Effacer la période"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
                   <button
-                    onClick={() => viewMode === 'mois' ? changeMonth(-1) : changeWeek(-1)}
+                    onClick={() => viewMode === 'mois' ? changeMonth(-1) : viewMode === 'annee' ? changeYear(-1) : changeWeek(-1)}
                     className="p-1.5 rounded-xl border border-primary-100 dark:border-primary-800 hover:bg-primary-50 dark:hover:bg-primary-950 text-primary-500 transition"
                     title="Précédent"
                   >
@@ -813,7 +929,7 @@ const handleDeleteGamme = (id: string) => {
                     Aujourd'hui
                   </button>
                   <button
-                    onClick={() => viewMode === 'mois' ? changeMonth(1) : changeWeek(1)}
+                    onClick={() => viewMode === 'mois' ? changeMonth(1) : viewMode === 'annee' ? changeYear(1) : changeWeek(1)}
                     className="p-1.5 rounded-xl border border-primary-100 dark:border-primary-800 hover:bg-primary-50 dark:hover:bg-primary-950 text-primary-500 transition"
                     title="Suivant"
                   >
@@ -822,6 +938,89 @@ const handleDeleteGamme = (id: string) => {
                 </div>
               </div>
             </div>
+
+            {/* VIEW MODE: YEARLY OVERVIEW */}
+            {viewMode === 'annee' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {Array.from({ length: 12 }).map((_, monthIdx) => {
+                  const monthDate = new Date(calendarDate.getFullYear(), monthIdx, 1);
+                  const monthLabel = monthDate.toLocaleDateString('fr-FR', { month: 'long' });
+                  const firstDay = new Date(calendarDate.getFullYear(), monthIdx, 1).getDay();
+                  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+                  const maxDays = new Date(calendarDate.getFullYear(), monthIdx + 1, 0).getDate();
+                  const isCurrentMonth = new Date().getFullYear() === calendarDate.getFullYear() && new Date().getMonth() === monthIdx;
+
+                  const monthEvents = currentYearEvents.filter(e => new Date(e.date).getMonth() === monthIdx);
+
+                  return (
+                    <div
+                      key={monthIdx}
+                      className={`rounded-2xl border p-3 transition ${isCurrentMonth ? 'border-accent-orange bg-orange-50/10 dark:bg-orange-950/10' : 'border-primary-100 dark:border-primary-800 bg-white dark:bg-primary-950'}`}
+                    >
+                      <button
+                        onClick={() => {
+                          setCalendarDate(new Date(calendarDate.getFullYear(), monthIdx, 1));
+                          setViewMode('mois');
+                        }}
+                        className="w-full flex items-center justify-between mb-2 group cursor-pointer"
+                      >
+                        <span className={`text-xs font-display font-extrabold capitalize ${isCurrentMonth ? 'text-accent-orange' : 'text-primary-800 dark:text-white group-hover:text-accent-orange'} transition`}>
+                          {monthLabel}
+                        </span>
+                        {monthEvents.length > 0 && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary-100 dark:bg-primary-800 text-primary-600 dark:text-primary-300">
+                            {monthEvents.length}
+                          </span>
+                        )}
+                      </button>
+
+                      <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
+                        {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
+                          <span key={i} className="text-[8px] font-bold text-primary-300 dark:text-primary-600">{d}</span>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-0.5">
+                        {Array.from({ length: 42 }).map((_, idx) => {
+                          const dayVal = idx + 1 - startOffset;
+                          const isValid = dayVal > 0 && dayVal <= maxDays;
+                          if (!isValid) return <div key={idx} className="h-6" />;
+
+                          const curDayDate = new Date(calendarDate.getFullYear(), monthIdx, dayVal);
+                          const formattedDate = curDayDate.toISOString().split('T')[0];
+                          const dayEvents = monthEvents.filter(e => e.date === formattedDate);
+                          const isToday = curDayDate.toDateString() === new Date().toDateString();
+                          const hasCritical = dayEvents.some(e => e.urgency?.toLowerCase().includes('crit') || e.urgency?.toLowerCase().includes('arr'));
+
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                setCalendarDate(curDayDate);
+                                setViewMode('mois');
+                              }}
+                              title={dayEvents.length > 0 ? `${dayEvents.length} événement(s) le ${curDayDate.toLocaleDateString('fr-FR')}` : undefined}
+                              className={`h-6 rounded-md flex flex-col items-center justify-center text-[8px] font-bold transition cursor-pointer ${
+                                isToday
+                                  ? 'bg-accent-orange text-white'
+                                  : dayEvents.length > 0
+                                    ? 'bg-primary-100 dark:bg-primary-800 text-primary-700 dark:text-primary-200 hover:bg-primary-200 dark:hover:bg-primary-700'
+                                    : 'text-primary-400 dark:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900'
+                              }`}
+                            >
+                              <span>{dayVal}</span>
+                              {dayEvents.length > 0 && (
+                                <span className={`w-1 h-1 rounded-full mt-0.5 ${hasCritical ? 'bg-rose-500' : isToday ? 'bg-white' : 'bg-accent-orange'}`} />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* VIEW MODE 1: MONTHLY VIEW */}
             {viewMode === 'mois' && (
@@ -916,7 +1115,7 @@ const handleDeleteGamme = (id: string) => {
                               }
                             }
                           }}
-                          className={`h-28 p-1.5 border border-primary-50 dark:border-primary-850/50 flex flex-col justify-between rounded-xl transition-all duration-150 ${
+className={`h-16 p-1 border border-primary-200 dark:border-primary-700 flex flex-col justify-between rounded-xl transition-all duration-150 ${
                             isValid 
                               ? curDayDate?.toDateString() === new Date().toDateString()
                                 ? 'bg-orange-50/20 dark:bg-orange-950/10 border-orange-200 dark:border-orange-950 ring-1 ring-orange-200 dark:ring-orange-900/30'
@@ -993,10 +1192,10 @@ const handleDeleteGamme = (id: string) => {
                           handleDropOnCell(dragDataStr, dStr);
                         }
                       }}
-                      className={`p-3.5 rounded-2xl border flex flex-col min-h-[420px] transition-all duration-250 ${
+className={`p-3.5 rounded-2xl border flex flex-col min-h-[420px] transition-all duration-250 ${
                         isToday 
                           ? 'bg-orange-500/[0.02] dark:bg-orange-950/[0.04] border-orange-200 dark:border-orange-900/50 shadow-md shadow-orange-500/5' 
-                          : 'bg-white dark:bg-primary-950 border-primary-50 dark:border-primary-850'
+                          : 'bg-white dark:bg-primary-950 border-primary-300 dark:border-primary-700'
                       }`}
                     >
                       {/* Day Header */}
@@ -1223,6 +1422,245 @@ const handleDeleteGamme = (id: string) => {
                     })
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* VIEW MODE: SUIVI GAMMES (annual visual dashboard) */}
+            {viewMode === 'suivi' && (
+              <div className="space-y-4">
+                {/* Filters bar */}
+<div className="flex flex-wrap gap-2 items-center bg-white dark:bg-primary-900 border border-primary-100 dark:border-primary-800 rounded-xl p-2">
+                  <div className="relative flex-1" style={{ minWidth: '170px' }}>
+                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-primary-300 z-10" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher un équipement..."
+                      value={searchEquipementSuivi}
+                      onChange={(e) => setSearchEquipementSuivi(e.target.value)}
+                      style={{ width: '100%', paddingLeft: '2rem' }}
+                      className="py-1.5 text-xs rounded-lg bg-primary-50 dark:bg-primary-950 border border-primary-100 dark:border-primary-800 text-primary-700 dark:text-primary-200 focus:outline-none focus:ring-2 focus:ring-accent-orange/30"
+                    />
+                  </div>
+
+                  <select
+                    value={filterFamille}
+                    onChange={(e) => setFilterFamille(e.target.value)}
+                    style={{ width: '100%', minWidth: '170px' }}
+                    className="flex-1 px-2 py-1.5 text-xs rounded-lg bg-primary-50 dark:bg-primary-950 border border-primary-100 dark:border-primary-800 text-primary-700 dark:text-primary-200 cursor-pointer"
+                  >
+                    <option value="">Toutes les familles (ateliers)</option>
+                    {[...new Set(equipements.map(e => e.atelier))].filter(Boolean).sort().map(a => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={filterActivite}
+                    onChange={(e) => setFilterActivite(e.target.value)}
+                    style={{ width: '100%', minWidth: '170px' }}
+                    className="flex-1 px-2 py-1.5 text-xs rounded-lg bg-primary-50 dark:bg-primary-950 border border-primary-100 dark:border-primary-800 text-primary-700 dark:text-primary-200 cursor-pointer"
+                  >
+                    <option value="">Toutes les activités (métiers)</option>
+                    {[...new Set(equipements.map(e => e.metier))].filter(Boolean).sort().map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={filterImportanceSuivi}
+                    onChange={(e) => setFilterImportanceSuivi(e.target.value as any)}
+                    style={{ width: '100%', minWidth: '150px' }}
+                    className="flex-1 px-2 py-1.5 text-xs rounded-lg bg-primary-50 dark:bg-primary-950 border border-primary-100 dark:border-primary-800 text-primary-700 dark:text-primary-200 cursor-pointer"
+                  >
+                    <option value="all">Toutes les importances</option>
+                    <option value="Haute">Haute</option>
+                    <option value="Normale">Normale</option>
+                  </select>
+
+                  <select
+                    value={filterOccurrenceType}
+                    onChange={(e) => setFilterOccurrenceType(e.target.value as any)}
+                    style={{ width: '100%', minWidth: '150px' }}
+                    className="flex-1 px-2 py-1.5 text-xs rounded-lg bg-primary-50 dark:bg-primary-950 border border-primary-100 dark:border-primary-800 text-primary-700 dark:text-primary-200 cursor-pointer"
+                  >
+                    <option value="all">Toutes les occurrences</option>
+                    <option value="Jours">Jours</option>
+                    <option value="Mois">Mois</option>
+                    <option value="Compteur">Compteur</option>
+                  </select>
+
+                  <div className="flex items-center gap-1.5 text-[11px] text-primary-600 dark:text-primary-300 font-bold shrink-0">
+                    <span>Seuil :</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={seuilProchainsJours}
+                      onChange={(e) => setSeuilProchainsJours(Math.max(1, Number(e.target.value) || 30))}
+                      style={{ width: '70px' }}
+                      className="px-1.5 py-1 text-xs rounded-lg bg-primary-50 dark:bg-primary-950 border border-primary-100 dark:border-primary-800 text-center"
+                    />
+                    <span>jrs</span>
+                  </div>
+                </div>
+
+                {/* Legend */}
+<div className="flex flex-wrap gap-x-3 gap-y-1 text-[9px] font-bold text-primary-500 dark:text-primary-400 px-1">
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-300 inline-block" /> Programmé / estimé</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block" /> Dans les {seuilProchainsJours} prochains jours</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-500 inline-block" /> En retard</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-pink-500 inline-block" /> Non réalisé</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-800 inline-block" /> Clôturé</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-cyan-300 inline-block" /> Mois actuel</span>
+                </div>
+
+                {/* Table + timeline */}
+                <div className="overflow-x-auto rounded-2xl border border-primary-100 dark:border-primary-800 bg-white dark:bg-primary-900">
+<table className="w-full text-xs border-collapse min-w-[1000px]">
+                    <thead>
+                      <tr className="bg-primary-50 dark:bg-primary-950 text-[10px] uppercase text-primary-500 dark:text-primary-400 font-bold">
+<th className="text-left px-2 py-2 sticky left-0 bg-primary-50 dark:bg-primary-950 z-10 min-w-[130px]">Gamme</th>
+                        <th className="text-left px-1.5 py-2 min-w-[95px]">Équipement</th>
+                        <th className="text-left px-1.5 py-2 min-w-[75px]">Occurrence</th>
+                        <th className="text-left px-1.5 py-2 min-w-[65px]">Dernier</th>
+                        <th className="text-left px-1.5 py-2 min-w-[65px]">Prochain</th>
+                        <th className="text-center px-2 py-2.5">Reste&nbsp;jrs</th>
+                        <th className="text-center px-2 py-2.5">Importance</th>
+{['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'].map((m, i) => {
+                          const isCurrentMonth = i === new Date().getMonth() && calendarDate.getFullYear() === new Date().getFullYear();
+                          return (
+                            <th key={i} className={`text-center px-0.5 py-2 w-6 ${isCurrentMonth ? 'bg-cyan-100 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400' : ''}`}>
+                              {m}
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-primary-50 dark:divide-primary-850">
+                      {suiviGammesRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={19} className="text-center py-10 text-primary-400 italic text-sm">
+                            Aucune gamme ne correspond aux filtres.
+                          </td>
+                        </tr>
+                      ) : (
+                        suiviGammesRows.map(row => (
+                          <tr key={row.gamme.id} className="hover:bg-primary-50/40 dark:hover:bg-primary-950/20 transition">
+                            <td
+                              onClick={() => handleStartEdit(row.gamme)}
+                              className="px-3 py-2 sticky left-0 bg-white dark:bg-primary-900 font-semibold text-primary-800 dark:text-white cursor-pointer hover:text-accent-orange transition"
+                            >
+                              {row.gamme.titre}
+                            </td>
+                            <td className="px-2 py-2 text-primary-600 dark:text-primary-300">
+                              {row.equipement?.nom || row.gamme.equipementNom}
+                            </td>
+                            <td className="px-2 py-2 text-primary-500 dark:text-primary-400">
+                              {row.gamme.typeDeclencheur === 'Compteur'
+                                ? 'Compteur'
+                                : `Tous les ${row.gamme.valeurDeclencheur} ${row.gamme.typeDeclencheur}`}
+                            </td>
+                            <td className="px-2 py-2 text-primary-500 dark:text-primary-400">
+                              {row.dernierBon ? new Date(row.dernierBon).toLocaleDateString('fr-FR') : '-'}
+                            </td>
+                            <td className="px-2 py-2 text-primary-500 dark:text-primary-400">
+                              {row.prochain ? row.prochain.toLocaleDateString('fr-FR') : '-'}
+                            </td>
+                            <td className={`px-2 py-2 text-center font-bold ${
+                              row.resteJours !== null && row.resteJours < 0
+                                ? 'text-red-500'
+                                : row.resteJours !== null && row.resteJours <= seuilProchainsJours
+                                  ? 'text-amber-600'
+                                  : 'text-primary-600 dark:text-primary-300'
+                            }`}>
+                              {row.resteJours !== null ? row.resteJours : '-'}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                                row.importance === 'Haute'
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
+                                  : 'bg-primary-100 text-primary-500 dark:bg-primary-800'
+                              }`}>
+                                {row.importance}
+                              </span>
+                            </td>
+{Array.from({ length: 12 }).map((_, m) => {
+                              const cell = row.monthStatus[m];
+                              const isCurrentMonth = m === new Date().getMonth() && calendarDate.getFullYear() === new Date().getFullYear();
+                              const colorMap: Record<string, string> = {
+                                estime: 'bg-emerald-300',
+                                proche: 'bg-amber-400',
+                                retard: 'bg-red-500',
+                                nonrealise: 'bg-pink-500',
+                                cloture: 'bg-blue-800'
+                              };
+                              return (
+                                <td key={m} className={`px-0.5 py-1.5 text-center ${isCurrentMonth ? 'bg-cyan-50 dark:bg-cyan-950/10' : ''}`}>
+                                  {cell ? (
+                                    <button
+                                      onClick={() => {
+                                        if (cell.intervention) {
+                                          const bt = cell.intervention;
+                                          setSelectedEvent({
+                                            id: bt.id,
+                                            title: `[${bt.typeDoc}] ${bt.equipementNom}`,
+                                            date: (bt.datePrevue || bt.dateCreation).split('T')[0],
+                                            isPrevisionnel: false,
+                                            type: bt.typeDoc,
+                                            urgency: bt.urgence,
+                                            status: bt.statut,
+                                            equipmentId: bt.equipementId,
+                                            equipmentNom: bt.equipementNom,
+                                            atelier: bt.atelier,
+                                            description: bt.description,
+                                            problemType: bt.typeProbleme,
+                                            technician: bt.technicienCloture || 'Non assigné',
+                                            duration: bt.tempsPasse || '1.5 H',
+                                            numero: bt.numero
+                                          });
+                                        } else {
+                                          setCalendarDate(new Date(calendarDate.getFullYear(), m, 1));
+                                          setViewMode('mois');
+                                        }
+                                      }}
+                                      onContextMenu={(ev) => {
+                                        ev.preventDefault();
+                                        setSuiviContextMenu({ x: ev.clientX, y: ev.clientY, gamme: row.gamme });
+                                      }}
+                                      title={`${row.gamme.titre} — ${m + 1}/${calendarDate.getFullYear()}${cell.intervention ? ' (clic droit : modifier la FMP)' : ''}`}
+                                      className={`w-3.5 h-3.5 rounded-sm mx-auto block ${colorMap[cell.status]} hover:scale-125 transition cursor-pointer`}
+                                    />
+                                  ) : (
+                                    <span className="block w-4 h-4 mx-auto" />
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+</table>
+                </div>
+
+                {/* Menu contextuel : clic droit sur une case colorée */}
+                {suiviContextMenu && (
+                  <div
+                    style={{ position: 'fixed', top: suiviContextMenu.y, left: suiviContextMenu.x, zIndex: 100 }}
+                    className="bg-white dark:bg-primary-900 border border-primary-200 dark:border-primary-700 rounded-xl shadow-xl py-1 min-w-[160px]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => {
+                        handleStartEdit(suiviContextMenu.gamme);
+                        setSuiviContextMenu(null);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-semibold text-primary-700 dark:text-primary-200 hover:bg-primary-50 dark:hover:bg-primary-800 flex items-center gap-2"
+                    >
+                      <PenTool size={12} className="text-accent-orange" />
+                      Modifier la FMP
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

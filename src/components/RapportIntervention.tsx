@@ -35,6 +35,7 @@ import { SaisieVocale } from './SaisieVocale';
 import { dbSaveAuditLog } from '../firebaseSync';
 import { compressImage } from '../utils/imageCompressor';
 import PhotoAnnotatorModal from './PhotoAnnotatorModal';
+import EquipmentTreeSelect from './EquipmentTreeSelect';
 
 interface RapportInterventionProps {
   interventions: Intervention[];
@@ -732,12 +733,13 @@ if ('touches' in e) {
                             <span>Équipement concerné</span>
                             <span className="text-red-500">*</span>
                           </label>
-                          <select required value={sponEqId} onChange={e => setSponEqId(e.target.value)}>
-                            <option value="">Sélectionner l'équipement...</option>
-                            {[...equipements].sort((a,b) => a.nom.localeCompare(b.nom)).map(eq => (
-                              <option key={eq.id} value={eq.id}>{eq.nom} - {eq.atelier} ({eq.serie})</option>
-                            ))}
-                          </select>
+                          <EquipmentTreeSelect
+                            equipements={equipements}
+                            selectedId={sponEqId}
+                            onSelect={(id) => setSponEqId(id)}
+                            placeholder="Rechercher ou parcourir l'arborescence..."
+                            required
+                          />
                         </div>
 
                         <div>
@@ -965,7 +967,7 @@ if ('touches' in e) {
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-primary-400" size={14} />
                             <input
                               type="text"
-                              placeholder="Rechercher par désignation, référence, code..."
+                              placeholder="Désignation, code article, réf. fournisseur ou fabricant..."
                               value={partSearch}
                               onChange={e => setPartSearch(e.target.value)}
                               className="pl-8 py-1.5 text-xs bg-white dark:bg-primary-900 rounded-lg"
@@ -976,25 +978,35 @@ if ('touches' in e) {
                           {partSearch.trim() && (
                             <ul className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white dark:bg-primary-900 border border-primary-200 dark:border-primary-800 rounded-xl shadow-xl z-50 divide-y divide-primary-100 dark:divide-primary-800 text-xs">
                               {pieces
-                                .filter(p => 
-                                  p.designation.toLowerCase().includes(partSearch.toLowerCase()) ||
-                                  (p.reference || '').toLowerCase().includes(partSearch.toLowerCase()) ||
-                                  (p.codeArticle || '').toLowerCase().includes(partSearch.toLowerCase())
-                                )
-                                .slice(0, 5)
+                                .filter(p => {
+                                  const q = partSearch.toLowerCase();
+                                  return (
+                                    p.designation.toLowerCase().includes(q) ||
+                                    (p.codeArticle || '').toLowerCase().includes(q) ||
+                                    (p.refFournisseur || '').toLowerCase().includes(q) ||
+                                    (p.reference || '').toLowerCase().includes(q)
+                                  );
+                                })
+                                .slice(0, 8)
                                 .map(p => (
                                   <li
                                     key={p.id}
                                     onClick={() => addPieceConsumption(p)}
-                                    className="p-2.5 hover:bg-primary-50 dark:hover:bg-primary-850 cursor-pointer flex justify-between items-center"
+                                    className="p-2.5 hover:bg-primary-50 dark:hover:bg-primary-850 cursor-pointer flex justify-between items-center gap-2"
                                   >
-                                    <div className="font-semibold text-primary-800 dark:text-primary-100">
-                                      {p.designation} <span className="text-[10px] text-primary-400">({p.reference || 'sans réf'})</span>
+                                    <div className="min-w-0">
+                                      <div className="font-semibold text-primary-800 dark:text-primary-100 truncate">
+                                        {p.designation}
+                                      </div>
+                                      <div className="text-[9px] text-primary-400 font-mono truncate">
+                                        Code : {p.codeArticle || '-'} · Réf. fab. : {p.reference || '-'} · Réf. fourn. : {p.refFournisseur || '-'}
+                                      </div>
                                     </div>
-                                    <span className="text-[9px] font-bold px-1.5 py-0.5 bg-primary-100 dark:bg-primary-950 rounded text-primary-500">
-                                      Stock : {p.quantite} dispo
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 bg-primary-100 dark:bg-primary-950 rounded text-primary-500 shrink-0">
+                                      Stock : {p.quantite}
                                     </span>
                                   </li>
+
                                 ))}
                             </ul>
                           )}
