@@ -106,6 +106,7 @@ import {
   Pause,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   HelpCircle,
   BookOpen,
   FileCheck,
@@ -234,6 +235,15 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<string>(new Date().toLocaleTimeString('fr-FR'));
   const [showHelp, setShowHelp] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
   const [lastCheckedAutoPurge, setLastCheckedAutoPurge] = useState<string>('');
 
   // External Portal State (Workshop/Atelier DI)
@@ -1955,6 +1965,25 @@ if (!authUser) {
           {showHelp ? <X size={22} /> : <HelpCircle size={22} />}
         </motion.button>
       </div>
+
+      {/* SCROLL TO TOP BUTTON */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="fixed bottom-14 right-24 z-50 w-11 h-11 rounded-full bg-primary-800 hover:bg-primary-900 dark:bg-primary-700 dark:hover:bg-primary-600 text-white shadow-lg flex items-center justify-center transition-colors"
+            aria-label="Revenir en haut de page"
+            title="Revenir en haut de page"
+          >
+            <ChevronUp size={20} />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

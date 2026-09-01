@@ -217,6 +217,12 @@ export default function PortailTerrain({
 
   // Barcode scanner states for spare parts
   const [pieceScannerActive, setPieceScannerActive] = useState(false);
+  const [quickScanSearch, setQuickScanSearch] = useState('');
+  const [photoScanLoading, setPhotoScanLoading] = useState(false);
+  const [photoScanResult, setPhotoScanResult] = useState<{ textesDetectes: string[]; description: string; suggestionRecherche: string } | null>(null);
+  const [photoScanMatches, setPhotoScanMatches] = useState<Piece[]>([]);
+  const [photoScanError, setPhotoScanError] = useState('');
+  const photoScanInputRef = useRef<HTMLInputElement>(null);
   const [pieceScannerError, setPieceScannerError] = useState<string | null>(null);
   const pieceQrScannerRef = useRef<Html5Qrcode | null>(null);
 
@@ -873,6 +879,65 @@ ${diagResult.partsRequired.join(', ')}`,
   }, [pieceScannerActive, selectedCameraId]);
 
   // Handle successful scan of a piece's barcode/QR
+  const handlePhotoScanFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setPhotoScanError("Veuillez sélectionner une image valide (photo).");
+      return;
+    }
+    setPhotoScanError('');
+    setPhotoScanResult(null);
+    setPhotoScanMatches([]);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      compressImage(base64).then(({ compressed }) => {
+        runPhotoScanIdentification(compressed);
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const runPhotoScanIdentification = async (base64Image: string) => {
+    setPhotoScanLoading(true);
+    try {
+      const response = await fetch("/api/gemini/identify-piece", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64Image })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "L'identification a échoué.");
+      }
+
+      const data = await response.json();
+      setPhotoScanResult(data);
+
+      const searchTerms = [data.suggestionRecherche, ...(data.textesDetectes || [])]
+        .join(' ')
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t: string) => t.length > 2);
+
+      const matches = pieces.filter(p => {
+        const haystack = `${p.designation} ${p.codeArticle} ${p.reference} ${p.refFournisseur}`.toLowerCase();
+        return searchTerms.some((term: string) => haystack.includes(term));
+      }).slice(0, 8);
+
+      setPhotoScanMatches(matches);
+    } catch (err: any) {
+      console.error("Error identifying piece:", err);
+      setPhotoScanError(err.message || "Une erreur réseau est survenue lors de l'identification.");
+    } finally {
+      setPhotoScanLoading(false);
+    }
+  };
+
   const handleSuccessfulPieceScan = (code: string) => {
     const cleanCode = code.trim().toUpperCase();
     const foundPiece = pieces.find(p => 
@@ -2743,11 +2808,11 @@ ${diagResult.partsRequired.join(', ')}`,
           <motion.div
             initial={{ opacity: 0, y: 15, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            className="bg-white dark:bg-primary-900 border border-primary-100 dark:border-primary-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden text-xs"
+            className="bg-white dark:bg-primary-900 border border-primary-100 dark:border-primary-800 rounded-2xl w-full max-w-lg shadow-2xl text-xs flex flex-col max-h-[90vh]"
           >
             
             {/* Modal Header */}
-            <div className="p-4 bg-primary-50 dark:bg-primary-950 border-b border-primary-100 dark:border-primary-850 flex justify-between items-center">
+            <div className="p-4 bg-primary-50 dark:bg-primary-950 border-b border-primary-100 dark:border-primary-850 flex justify-between items-center shrink-0">
               <div>
                 <h3 className="font-display font-bold text-sm text-primary-900 dark:text-white flex items-center gap-1.5">
                   <FileSignature size={15} className="text-accent-orange" />
@@ -2767,7 +2832,7 @@ ${diagResult.partsRequired.join(', ')}`,
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSubmitCloseBT} className="p-4 space-y-4">
+            <form onSubmit={handleSubmitCloseBT} className="p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
               
               <div>
                 <div className="flex justify-between items-center mb-1">
@@ -2836,18 +2901,38 @@ ${diagResult.partsRequired.join(', ')}`,
                       </div>
                     </div>
                     
-                    <button
-                      type="button"
-                      onClick={() => setPieceScannerActive(!pieceScannerActive)}
-                      className={`flex items-center gap-1.5 text-xs font-semibold py-1.5 px-3 rounded-lg transition ${
-                        pieceScannerActive 
-                          ? 'bg-red-500 hover:bg-red-600 text-white' 
-                          : 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm'
-                      }`}
-                    >
-                      <Camera size={14} />
-                      {pieceScannerActive ? 'Arrêter Caméra' : 'Activer Caméra (Scan)'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPieceScannerActive(!pieceScannerActive)}
+                        className={`flex items-center gap-1.5 text-xs font-semibold py-1.5 px-3 rounded-lg transition ${
+                          pieceScannerActive 
+                            ? 'bg-red-500 hover:bg-red-600 text-white' 
+                            : 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm'
+                        }`}
+                      >
+                        <Camera size={14} />
+                        {pieceScannerActive ? 'Arrêter Caméra' : 'Activer Caméra (Scan)'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => photoScanInputRef.current?.click()}
+                        disabled={photoScanLoading}
+                        className="flex items-center gap-1.5 text-xs font-semibold py-1.5 px-3 rounded-lg transition bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Sparkles size={14} />
+                        {photoScanLoading ? 'Analyse...' : 'Scanner par Photo (IA)'}
+                      </button>
+                      <input
+                        ref={photoScanInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handlePhotoScanFile}
+                        className="hidden"
+                      />
+                    </div>
                   </div>
 
                   {/* Camera Scanner Container */}
@@ -2869,13 +2954,101 @@ ${diagResult.partsRequired.join(', ')}`,
                     </div>
                   )}
 
+                  {/* PHOTO SCAN RESULTS */}
+                  {photoScanError && (
+                    <p className="text-xs text-red-500 font-semibold">{photoScanError}</p>
+                  )}
+
+                  {photoScanResult && (
+                    <div className="border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 rounded-xl p-3 space-y-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles size={13} className="text-indigo-500" />
+                        <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wide">
+                          Analyse IA de la photo
+                        </span>
+                      </div>
+                      <p className="text-xs text-primary-700 dark:text-primary-300">
+                        {photoScanResult.description}
+                      </p>
+                      {photoScanResult.textesDetectes.length > 0 && (
+                        <p className="text-[11px] text-primary-500 dark:text-primary-400 font-mono">
+                          Texte détecté : {photoScanResult.textesDetectes.join(' · ')}
+                        </p>
+                      )}
+
+                      {photoScanMatches.length > 0 ? (
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-[10px] font-bold uppercase text-primary-500">
+                            Pièces correspondantes trouvées en stock :
+                          </span>
+                          {photoScanMatches.map(p => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                handleSuccessfulPieceScan(p.codeArticle);
+                                setPhotoScanResult(null);
+                                setPhotoScanMatches([]);
+                              }}
+                              className="w-full flex items-center justify-between p-2 rounded-lg bg-white dark:bg-primary-900 border border-primary-200 dark:border-primary-800 hover:border-indigo-400 dark:hover:border-indigo-700 transition text-left"
+                            >
+                              <div>
+                                <span className="block text-xs font-bold text-primary-800 dark:text-primary-200">
+                                  {p.designation}
+                                </span>
+                                <span className="block text-[10px] text-primary-400 font-mono">
+                                  {p.codeArticle} · {p.emplacement}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-800 text-primary-600 dark:text-primary-300 shrink-0">
+                                Stock : {p.quantite}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold pt-1">
+                          Aucune correspondance trouvée automatiquement dans le stock. Essayez la recherche manuelle avec les mots-clés détectés ci-dessus.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* QUICK SIMULATOR PANEL */}
                   <div className="space-y-1.5">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-primary-500 block">
                       Simulateur de Scan Rapide (Pièces en Stock) :
                     </span>
+                    <div className="relative">
+                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-primary-300" />
+                      <input
+                        type="text"
+                        placeholder="Rechercher une pièce (désignation, code, réf...)"
+                        value={quickScanSearch}
+                        onChange={(e) => setQuickScanSearch(e.target.value)}
+                        className="w-full pl-8 pr-2 py-1.5 text-xs rounded-lg bg-primary-50 dark:bg-primary-950 border border-primary-200 dark:border-primary-800"
+                      />
+                    </div>
+                    {quickScanSearch.trim() === '' ? (
+                      <p className="text-[10px] text-primary-400 italic py-2">
+                        Tapez au moins un caractère pour afficher les pièces correspondantes ({pieces.length} au total dans le stock).
+                      </p>
+                    ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {pieces.map(p => (
+                      {pieces
+                        .filter(p => {
+                          const q = quickScanSearch.toLowerCase();
+                          return (
+                            p.designation.toLowerCase().includes(q) ||
+                            (p.codeArticle || '').toLowerCase().includes(q) ||
+                            (p.codeBarre || '').toLowerCase().includes(q) ||
+                            (p.refFournisseur || '').toLowerCase().includes(q) ||
+                            (p.reference || '').toLowerCase().includes(q)
+                          );
+                        })
+                        .slice(0, 30)
+                        .map(p => (
+
                         <button
                           key={p.id}
                           type="button"
@@ -2901,6 +3074,7 @@ ${diagResult.partsRequired.join(', ')}`,
                         </button>
                       ))}
                     </div>
+                    )}
                   </div>
 
                   {/* CONSUMED LIST */}

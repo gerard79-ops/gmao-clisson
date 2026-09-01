@@ -131,6 +131,79 @@ Propose un diagnostic précis en français et suggère les actions correctives i
   }
 });
 
+
+// AI Piece Identification Endpoint (reconnaissance de pièce par photo pour la recherche en stock)
+app.post("/api/gemini/identify-piece", async (req, res) => {
+  try {
+    const { image } = req.body;
+
+    if (!image) {
+      return res.status(400).json({ error: "L'image base64 est requise." });
+    }
+
+    const match = image.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+    if (!match) {
+      return res.status(400).json({ error: "Format d'image base64 invalide." });
+    }
+
+    const mimeType = match[1];
+    const base64Data = match[2];
+
+    const ai = getGeminiClient();
+
+    const imagePart = {
+      inlineData: { mimeType, data: base64Data },
+    };
+
+    const textPart = {
+      text: `Tu regardes la photo d'une pièce détachée industrielle (mécanique, électrique, hydraulique...) prise par un technicien qui cherche à la retrouver dans un stock de pièces de rechange.
+Identifie tout texte, code, référence ou numéro visible et lisible sur la pièce ou son étiquette.
+Décris aussi brièvement le type de pièce, sa couleur, sa forme et sa matière apparente.
+Propose enfin une courte requête de recherche (quelques mots-clés) la plus utile possible pour retrouver cette pièce dans une base de données de stock.`,
+    };
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: { parts: [imagePart, textPart] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            textesDetectes: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "Liste des textes, codes ou références lisibles détectés sur la pièce."
+            },
+            description: {
+              type: Type.STRING,
+              description: "Courte description visuelle de la pièce (type, couleur, forme, matière) en français."
+            },
+            suggestionRecherche: {
+              type: Type.STRING,
+              description: "Requête de recherche courte (quelques mots-clés) la plus pertinente pour retrouver cette pièce dans un stock."
+            }
+          },
+          required: ["textesDetectes", "description", "suggestionRecherche"]
+        }
+      }
+    });
+
+    const resultText = response.text;
+    if (!resultText) {
+      throw new Error("Le modèle Gemini n'a renvoyé aucune réponse.");
+    }
+
+    const jsonResult = JSON.parse(resultText.trim());
+    res.json(jsonResult);
+  } catch (error: any) {
+    console.error("Gemini piece identification API error:", error);
+    res.status(500).json({
+      error: error.message || "Une erreur est survenue lors de l'identification de la pièce."
+    });
+  }
+});
+
 // // ===================== ADMIN SDK - Gestion des collaborateurs =====================
 
 // Initialise le SDK Admin Firebase à partir du fichier de clé de service

@@ -126,6 +126,10 @@ export default function RapportIntervention({
     setPartSearch('');
     setHasSigned(false);
     clearSignature();
+    setSponEqId('');
+    setSponTitre('');
+    setSponDesc('');
+    setSponUrgence('Moyenne');
   };
 
   // Filter active/ongoing interventions that need a report
@@ -558,6 +562,7 @@ if ('touches' in e) {
                 onClick={() => {
                   setSelectedIntId(null);
                   setIsSpontaneousMode(true);
+                  resetForm();
                 }}
                 className={`w-full p-3 rounded-xl border flex items-center justify-between transition cursor-pointer font-bold ${
                   isSpontaneousMode
@@ -737,7 +742,7 @@ if ('touches' in e) {
                             equipements={equipements}
                             selectedId={sponEqId}
                             onSelect={(id) => setSponEqId(id)}
-                            placeholder="Rechercher ou parcourir l'arborescence..."
+                            placeholder="Sélectionner..."
                             required
                           />
                         </div>

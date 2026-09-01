@@ -4170,21 +4170,37 @@ onClick={(e) => {
 
               {/* DETAILS PANEL BAR */}
               <div className="card flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-display font-bold text-primary-900 dark:text-white">
-                      {selectedEq.nom}
-                    </h2>
-                    {selectedEq.critique && (
-                      <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 flex items-center gap-1">
-                        <Flame size={10} />
-                        Critique
-                      </span>
+                <div className="flex items-center gap-4 min-w-0">
+                  {/* PHOTO THUMBNAIL */}
+                  <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950 flex items-center justify-center">
+                    {selectedEq.photoUrl ? (
+                      <img
+                        src={selectedEq.photoUrl}
+                        alt={selectedEq.nom}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <Wrench size={22} className="text-primary-300 dark:text-primary-700" />
                     )}
                   </div>
-                  <p className="text-xs text-primary-500 dark:text-primary-400 mt-1 font-mono uppercase">
-                    ID: {selectedEq.id} · Atelier: {selectedEq.atelier}
-                  </p>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-display font-bold text-primary-900 dark:text-white">
+                        {selectedEq.nom}
+                      </h2>
+                      {selectedEq.critique && (
+                        <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 flex items-center gap-1">
+                          <Flame size={10} />
+                          Critique
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-primary-500 dark:text-primary-400 mt-1 font-mono uppercase">
+                      ID: {selectedEq.id} · Atelier: {selectedEq.atelier}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
