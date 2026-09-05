@@ -49,6 +49,7 @@ import {
 
 interface AchatsProps {
   currentRole: string;
+  currentUserName: string;
   permissionsMatrix: PermissionsMatrix;
   suppliers: Fournisseur[];
   commandes: Commande[];
@@ -66,6 +67,7 @@ interface AchatsProps {
 }
 
 export default function Achats({
+  currentUserName,
   currentRole,
   permissionsMatrix,
   suppliers,
@@ -831,7 +833,7 @@ const handleDeleteBudget = (id: string) => {
             onClick={() => {
               setCmdSupplierId(suppliers[0]?.id || '');
               setCmdAtelier(settings.listes.ateliers[0] || '');
-              setCmdDemandeur('Jean Dupont (Admin)');
+              setCmdDemandeur(currentUserName);
               setShowCommandForm(true);
             }}
             className="btn-primary"

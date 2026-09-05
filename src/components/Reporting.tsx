@@ -59,6 +59,7 @@ import { Equipement, Intervention, Piece, GlobalSettings, GammePreventive, Compt
 import { ModuleHelp } from './ModuleHelp';
 
 interface ReportingProps {
+  currentUserName: string;
   currentRole: string;
   permissionsMatrix: PermissionsMatrix;
   equipements: Equipement[];
@@ -107,6 +108,7 @@ const parseHours = (hoursStr: string | undefined): number => {
 };
 
 export default function Reporting({
+  currentUserName,
   currentRole,
   permissionsMatrix,
   equipements,
@@ -178,7 +180,7 @@ const canGenererAudit = hasPermission(permissionsMatrix, currentRole, 'reporting
   const [btUrgenceOverride, setBtUrgenceOverride] = useState('Critique');
 
   // PDF Signature States
-  const [signatureTechnician, setSignatureTechnician] = useState('Jean Dupont');
+  const [signatureTechnician, setSignatureTechnician] = useState(currentUserName);
   const [signatureSupervisor, setSignatureSupervisor] = useState('Marc-Antoine Laurent');
   const [signatureDate, setSignatureDate] = useState(new Date().toISOString().split('T')[0]);
   const [signatureComments, setSignatureComments] = useState("Le bilan analytique de performance est validé. Les recommandations pour l'ajustement du stock de sécurité des pièces de rechange et les actions préventives planifiées sont approuvées pour exécution immédiate.");

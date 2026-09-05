@@ -42,6 +42,7 @@ import { compressImage } from '../utils/imageCompressor';
 import { hasPermission, PermissionsMatrix } from '../permissionsConfig';
 
 interface InterventionsProps {
+  currentUserName: string;
   currentRole: string;
   permissionsMatrix: PermissionsMatrix;
   interventions: Intervention[];
@@ -59,6 +60,7 @@ interface InterventionsProps {
 }
 
 export default function Interventions({
+  currentUserName,
   currentRole,
   permissionsMatrix,
   interventions,
@@ -521,7 +523,7 @@ export default function Interventions({
     const newComm: Commentaire = {
       id: `C-${Date.now()}`,
       texte: chatInput,
-      auteur: "Jean Dupont (Admin)",
+      auteur: `${currentUserName} (${userRole})`,
       timestamp: new Date().toISOString()
     };
     const updated = [...localComments, newComm];
@@ -689,7 +691,7 @@ export default function Interventions({
 {canCreerBon && (
         <button
           onClick={() => {
-            setCrOperateur("Pierre Martin (Tech)");
+            setCrOperateur(currentUserName);
             setShowSpontaneousModal(true);
           }}
           className="btn-primary flex items-center gap-1.5"
@@ -1398,7 +1400,7 @@ export default function Interventions({
                     <span className="text-xs font-bold text-primary-600 dark:text-primary-400 pb-2 border-b flex items-center gap-1.5"><MessageSquare size={14} /> Notes Collaboratives</span>
                     <div className="flex-1 overflow-y-auto space-y-3 py-2 pr-1">
                       {localComments.map((com, cIdx) => {
-                        const isMe = com.auteur === "Jean Dupont (Admin)";
+                        const isMe = com.auteur === `${currentUserName} (${userRole})`;
                         return (
                           <div key={cIdx} className={`chat-msg ${isMe ? 'msg-mine' : 'msg-other'} text-[11px]`}>
                             <span className="block font-bold text-[9px] opacity-75">{com.auteur}</span>

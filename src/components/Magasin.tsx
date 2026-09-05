@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 
 interface MagasinProps {
+  currentUserName: string;
   currentRole: string;
   permissionsMatrix: PermissionsMatrix;
   pieces: Piece[];
@@ -59,6 +60,7 @@ interface MagasinProps {
 }
 
 export default function Magasin({
+  currentUserName,
   currentRole,
   permissionsMatrix,
   pieces,
@@ -883,7 +885,7 @@ const handleDelete = () => {
                 setMvtInPieceId(pieces[0]?.id || '');
                 setMvtInPrix(pieces[0]?.prix || 0);
                 setMvtInEmp(pieces[0]?.emplacement || '');
-                setMvtInIntervenant('Sylvie Roche (Magasin)');
+                setMvtInIntervenant(currentUserName);
                 setShowInModal(true);
               }}
               className="p-5 border border-emerald-200 dark:border-emerald-950 bg-emerald-50/20 dark:bg-emerald-950/10 text-emerald-700 dark:text-emerald-400 font-display font-bold text-lg rounded-xl flex items-center justify-center gap-3 hover:bg-emerald-100/20 active:scale-[0.99] transition shadow-sm"
@@ -897,7 +899,7 @@ const handleDelete = () => {
             <button
               onClick={() => {
                 setMvtOutPieceId(pieces[0]?.id || '');
-                setMvtOutIntervenant('Pierre Martin (Tech)');
+                setMvtOutIntervenant(currentUserName);
                 setMvtOutType('Directe');
                 setMvtOutDestName('Perte / Divers');
                 setShowOutModal(true);
@@ -1099,7 +1101,7 @@ const handleDelete = () => {
                     setMvtInPieceId(selectedPiece.id);
                     setMvtInPrix(selectedPiece.prix);
                     setMvtInEmp(selectedPiece.emplacement);
-                    setMvtInIntervenant('Sylvie Roche (Magasin)');
+                setMvtInIntervenant(currentUserName);
                     setShowInModal(true);
                   }}
                   className="btn-primary w-full justify-center"
@@ -1113,7 +1115,7 @@ const handleDelete = () => {
                 <button
                   onClick={() => {
                     setMvtOutPieceId(selectedPiece.id);
-                    setMvtOutIntervenant('Pierre Martin (Tech)');
+                setMvtOutIntervenant(currentUserName);
                     setShowOutModal(true);
                   }}
                   className="btn-primary w-full justify-center"

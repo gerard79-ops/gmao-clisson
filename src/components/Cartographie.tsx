@@ -31,6 +31,7 @@ import { Equipement, Intervention, GlobalSettings } from '../types';
 import { ModuleHelp } from './ModuleHelp';
 
 interface CartographieProps {
+  currentUserName: string;
   equipements: Equipement[];
   interventions: Intervention[];
   settings: GlobalSettings;
@@ -52,6 +53,7 @@ interface MapZone {
 }
 
 export default function Cartographie({
+  currentUserName,
   equipements,
   interventions,
   settings,
@@ -280,7 +282,7 @@ export default function Cartographie({
       atelier: selectedEq.atelier,
       urgence: quickOrderUrgence,
       typeProbleme: quickOrderTypeProbleme,
-      demandeur: userRole === 'Manager' ? "Jean Dupont (Manager Map)" : "Technicien de Quart",
+      demandeur: currentUserName,
       description: quickOrderDesc || `Intervention de maintenance rapide générée depuis la vue cartographique interactive.\n\nDescription : Aucun détail supplémentaire fourni.`,
       statut: 'En attente'
     });

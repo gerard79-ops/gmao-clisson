@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Wrench,
+  Bell,
   Euro,
   Activity,
   AlertTriangle,
@@ -75,19 +76,26 @@ export default function Dashboard({
 }: DashboardProps) {
   // Widget customization state
   const [widgets, setWidgets] = useState<WidgetConfig[]>(() => {
-    const saved = localStorage.getItem('gmao_widgets_config');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) { /* use default */ }
-    }
-    return [
+    const defaultWidgets: WidgetConfig[] = [
       { id: 'kpis', title: 'KPIs d\'Exploitation', enabled: true },
+      { id: 'di-pending', title: 'Demandes d\'Intervention en attente', enabled: true },
       { id: 'ratio', title: 'Jauge d\'Objectif Préventif', enabled: true },
       { id: 'charts', title: 'Courbes de Fiabilité (MTBF/MTTR)', enabled: true },
       { id: 'pareto', title: 'Diagramme de Pareto (80/20 Arrêts)', enabled: true },
       { id: 'critical', title: 'Top 5 Équipements Critiques', enabled: true },
     ];
+    const saved = localStorage.getItem('gmao_widgets_config');
+    if (saved) {
+      try {
+        const parsed: WidgetConfig[] = JSON.parse(saved);
+        // Ajoute le nouveau widget aux tableaux de bord déjà personnalisés par un utilisateur
+        if (!parsed.some(w => w.id === 'di-pending')) {
+          parsed.splice(1, 0, { id: 'di-pending', title: 'Demandes d\'Intervention en attente', enabled: true });
+        }
+        return parsed;
+      } catch (e) { /* use default */ }
+    }
+    return defaultWidgets;
   });
 
   const [showConfig, setShowConfig] = useState(false);
@@ -466,7 +474,7 @@ export default function Dashboard({
               onDragEnd={handleDragEnd}
               onDrop={(e) => handleDrop(e, index)}
               className={`transition-all duration-300 flex flex-col ${
-                widget.id === 'kpis' || widget.id === 'critical' || widget.id === 'pareto' ? 'lg:col-span-3' : widget.id === 'charts' ? 'lg:col-span-2' : 'lg:col-span-1'
+                widget.id === 'kpis' || widget.id === 'di-pending' || widget.id === 'critical' || widget.id === 'pareto' ? 'lg:col-span-3' : widget.id === 'charts' ? 'lg:col-span-2' : 'lg:col-span-1'
               } ${
                 showConfig ? 'border-2 border-dashed border-indigo-400/50 dark:border-indigo-800/50 rounded-2xl p-2.5 bg-indigo-50/5 dark:bg-indigo-950/5' : ''
               } ${
@@ -948,6 +956,97 @@ export default function Dashboard({
                   )}
                 </div>
               )}
+              {widget.id === 'di-pending' && (
+                <div className="card h-full">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-base font-display font-bold text-primary-900 dark:text-white flex items-center gap-2">
+                        <Bell className="text-accent-orange" size={18} />
+                        Demandes d'Intervention en attente
+                      </h3>
+                      <p className="text-xs text-primary-500 dark:text-primary-400 mt-1">
+                        Demandes soumises depuis le Portail Atelier, pas encore approuvées.
+                      </p>
+                    </div>
+                    {(() => {
+                      const pendingCount = interventions.filter(i => i.typeDoc === 'DI' && i.statut === 'En attente').length;
+                      return pendingCount > 0 ? (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400">
+                          {pendingCount}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="data-table w-full">
+                      <thead>
+                        <tr>
+                          <th>Équipement</th>
+                          <th>Demandeur</th>
+                          <th>Destinataire</th>
+                          <th>Atelier</th>
+                          <th>Urgence</th>
+                          <th className="text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {interventions.filter(i => i.typeDoc === 'DI' && i.statut === 'En attente').length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="text-center text-primary-500 py-6 text-sm">
+                              Aucune demande en attente pour le moment.
+                            </td>
+                          </tr>
+                        ) : (
+                          interventions
+                            .filter(i => i.typeDoc === 'DI' && i.statut === 'En attente')
+                            .sort((a, b) => new Date(b.dateCreation).getTime() - new Date(a.dateCreation).getTime())
+                            .slice(0, 8)
+                            .map(di => (
+                              <tr key={di.id} className="hover:bg-primary-50 dark:hover:bg-primary-800 transition">
+                                <td className="font-semibold text-primary-800 dark:text-white">{di.equipementNom}</td>
+                                <td className="text-primary-600 dark:text-primary-300">{di.demandeur}</td>
+                                <td>
+                                  {di.destinataire ? (
+                                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                                      {di.destinataire}
+                                    </span>
+                                  ) : (
+                                    <span className="text-primary-400 text-xs italic">Non précisé</span>
+                                  )}
+                                </td>
+                                <td>
+                                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300">
+                                    {di.atelier}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                    di.urgence?.includes('Critique') || di.urgence?.includes('Haute')
+                                      ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
+                                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                  }`}>
+                                    {di.urgence}
+                                  </span>
+                                </td>
+                                <td className="text-right">
+                                  <button
+                                    onClick={() => onNavigate('interventions', di.id)}
+                                    className="btn-icon bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 hover:bg-accent-orange hover:text-white"
+                                    title="Traiter cette demande"
+                                  >
+                                    <ChevronRight size={14} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
 
               {widget.id === 'critical' && (
                 <div className="card h-full">

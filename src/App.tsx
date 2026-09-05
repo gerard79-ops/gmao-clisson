@@ -334,6 +334,10 @@ const isRealAdmin = (db.utilisateurs || []).some(
   (u) => (u.id === authUser?.uid || u.email === authUser?.email) && u.role === 'Administrateur'
 );
 
+const currentUserName = currentUserProfile
+  ? `${currentUserProfile.prenom} ${currentUserProfile.nom}`
+  : (authUser?.email || 'Utilisateur');
+
   // Simple Role Management (Technicien vs Manager)
   const [userRole, setUserRole] = useState<'Technicien' | 'Manager'>(() => {
     const saved = localStorage.getItem('gmaopro_role');
@@ -649,7 +653,7 @@ const activeEmail = authUser?.email;
   };
 
   // Add intervention / BT
-  const handleAddIntervention = (payload: Omit<Intervention, 'id' | 'dateCreation'>) => {
+  const handleAddIntervention = async (payload: Omit<Intervention, 'id' | 'dateCreation'>) => {
     const code = "BT-" + new Date().getFullYear().toString().substring(2, 4) + "-" + Math.random().toString(36).substring(2, 6).toUpperCase();
     const newInt: Intervention = {
       ...payload,
@@ -657,7 +661,7 @@ const activeEmail = authUser?.email;
       numero: code,
       dateCreation: new Date().toISOString()
     };
-    dbSaveIntervention(newInt);
+    await dbSaveIntervention(newInt);
     triggerInAppNotification(`Nouveau Bon de Travail généré : ${code}`, 'success');
   };
 
@@ -1242,6 +1246,7 @@ const handleDeleteCollection = async (collectionName: string): Promise<number> =
       <div className={effectiveThemeMode === 'dark' ? 'dark' : ''}>
         <PortailTerrain
           equipements={db.equipements}
+          currentUserName={currentUserName}
           interventions={db.interventions}
           settings={db.settings}
           pieces={db.pieces}
@@ -1644,6 +1649,7 @@ if (!authUser) {
               {activeModule === 'portail-terrain' && (
                 <PortailTerrain
                   equipements={db.equipements}
+       		  currentUserName={currentUserName}
                   interventions={db.interventions}
                   settings={db.settings}
                   pieces={db.pieces}
@@ -1661,6 +1667,7 @@ if (!authUser) {
                   currentRole={currentUserProfile?.role || userRole}
                   permissionsMatrix={db.permissionsMatrix}
                   equipements={db.equipements}
+                  currentUserName={currentUserName}
                   settings={db.settings}                  
 		  interventions={db.interventions}
                   mouvements={db.mouvements}
@@ -1688,6 +1695,7 @@ if (!authUser) {
                 <Cartographie
                   equipements={db.equipements}
                   interventions={db.interventions}
+                  currentUserName={currentUserName}
                   settings={db.settings}
                   onEditEquipement={handleEditEquipement}
                   onAddIntervention={handleAddIntervention}
@@ -1700,6 +1708,7 @@ if (!authUser) {
                   currentRole={currentUserProfile?.role || userRole}
                   permissionsMatrix={db.permissionsMatrix}
                   interventions={db.interventions}
+                  currentUserName={currentUserName}
                   equipements={db.equipements}
                   pieces={db.pieces}
                   settings={db.settings}
@@ -1717,6 +1726,7 @@ if (!authUser) {
               {activeModule === 'rapport-intervention' && (
                 <RapportIntervention
                   interventions={db.interventions}
+                  currentUserName={currentUserName}
                   equipements={db.equipements}
                   pieces={db.pieces}
                   settings={db.settings}
@@ -1734,6 +1744,7 @@ if (!authUser) {
 		  currentRole={currentUserProfile?.role || userRole}
                   permissionsMatrix={db.permissionsMatrix}
                   pieces={db.pieces}
+                  currentUserName={currentUserName}
                   equipements={db.equipements}
                   suppliers={db.suppliers}
                   settings={db.settings}
@@ -1775,6 +1786,7 @@ if (!authUser) {
 		  currentRole={currentUserProfile?.role || userRole}
                   permissionsMatrix={db.permissionsMatrix}
                   suppliers={db.suppliers}
+                  currentUserName={currentUserName}
                   commandes={db.commandes}
                   settings={db.settings}
                   equipements={db.equipements}
@@ -1795,6 +1807,7 @@ if (!authUser) {
 		  currentRole={currentUserProfile?.role || userRole}
                   permissionsMatrix={db.permissionsMatrix}
                   equipements={db.equipements}
+                  currentUserName={currentUserName}
                   interventions={db.interventions}
                   pieces={db.pieces}
                   settings={db.settings}
@@ -1811,6 +1824,7 @@ if (!authUser) {
                   permissionsMatrix={db.permissionsMatrix}
 		  onDeleteCollection={handleDeleteCollection}
                   settings={db.settings}
+                  currentUserName={currentUserName}
                   onUpdateSettings={handleUpdateSettings}
                   onResetDatabase={resetFirestoreDatabase}
                   onImportBackup={handleImportBackup}

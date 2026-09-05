@@ -29,7 +29,7 @@ interface PortailAtelierDIProps {
   interventions: Intervention[];
   settings: GlobalSettings;
   utilisateurs: Utilisateur[];
-  onAddIntervention: (payload: Omit<Intervention, 'id' | 'dateCreation'>) => void;
+  onAddIntervention: (payload: Omit<Intervention, 'id' | 'dateCreation'>) => Promise<void>;
 }
 
 export default function PortailAtelierDI({
@@ -112,12 +112,15 @@ export default function PortailAtelierDI({
     }).sort((a, b) => new Date(b.dateCreation).getTime() - new Date(a.dateCreation).getTime());
   }, [workshopDIs, statusFilter, searchQuery]);
 
-const handleSubmit = (e: React.FormEvent) => {
+  const [submitError, setSubmitError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!demandeur.trim() || !destinataire || !selectedAtelier || !selectedEquipementId || !typeProbleme || !description.trim()) {
       return;
     }
 
+    setSubmitError('');
     setSubmitting(true);
 
     // Find selected equipment details
@@ -160,13 +163,11 @@ const handleSubmit = (e: React.FormEvent) => {
       description: description.trim(),
       statut: 'En attente' as const,
       source: 'Portail Atelier DI',
-      codeDefaut: codeDefaut.trim() || undefined
+      codeDefaut: codeDefaut.trim() || ''
     };
-
-    setTimeout(() => {
-      onAddIntervention(payload);
-      
-// Clear form
+    try {
+      await onAddIntervention(payload);
+      // Clear form
       setDescription('');
       setCodeDefaut('');
       setDestinataire('');
@@ -179,7 +180,13 @@ const handleSubmit = (e: React.FormEvent) => {
       setTimeout(() => {
         setShowSuccessToast(false);
       }, 5000);
-    }, 800);
+    } catch (err: any) {
+      console.error('Erreur lors de la création de la demande:', err);
+      setSubmitError(
+        "❌ La demande n'a pas pu être enregistrée. Si ce poste n'est jamais connecté à l'application, contactez votre administrateur — un accès dédié est nécessaire. Détail technique : " + (err?.message || 'inconnu')
+      );
+      setSubmitting(false);
+    }
   };
 
   const getStatusBadgeStyles = (status: string) => {
@@ -430,6 +437,11 @@ const handleSubmit = (e: React.FormEvent) => {
                   </div>
                 </div>
 
+{submitError && (
+  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+    {submitError}
+  </div>
+)}
                 {/* SUBMIT BUTTON */}
                 <button
                   type="submit"

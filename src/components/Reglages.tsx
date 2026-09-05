@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 
 interface ReglagesProps {
+  currentUserName: string;
   currentRole: string;
   permissionsMatrix: PermissionsMatrix;
   onDeleteCollection: (collectionName: string) => Promise<number>;
@@ -68,6 +69,7 @@ interface ReglagesProps {
 }
 
 export default function Reglages({
+  currentUserName,
   currentRole,
   permissionsMatrix,
   onDeleteCollection,
@@ -542,7 +544,7 @@ const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
     const logItem: AuditLog = {
       id: "LOG-" + Math.random().toString(36).substring(2, 6).toUpperCase() + "-" + Date.now().toString().slice(-4),
       timestamp: new Date().toISOString(),
-      utilisateur: "Jean Dupont (Administrateur)",
+      utilisateur: `${currentUserName} (${currentRole})`,
       action,
       details,
       criticite,

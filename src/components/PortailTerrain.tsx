@@ -49,6 +49,7 @@ import { ModuleHelp } from './ModuleHelp';
 import EquipmentTreeSelect from './EquipmentTreeSelect';
 
 interface PortailTerrainProps {
+  currentUserName: string;
   equipements: Equipement[];
   interventions: Intervention[];
   settings: GlobalSettings;
@@ -62,6 +63,7 @@ interface PortailTerrainProps {
 }
 
 export default function PortailTerrain({
+  currentUserName,
   equipements,
   interventions,
   settings,
@@ -100,7 +102,7 @@ export default function PortailTerrain({
 
   // Session Operator State
   const [selectedOperator, setSelectedOperator] = useState<string>(
-    settings.listes.operateurs[0] || 'Pierre Martin'
+    settings.listes.operateurs[0] || currentUserName
   );
 
   // Scanning State
@@ -918,16 +920,55 @@ ${diagResult.partsRequired.join(', ')}`,
       const data = await response.json();
       setPhotoScanResult(data);
 
-      const searchTerms = [data.suggestionRecherche, ...(data.textesDetectes || [])]
-        .join(' ')
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((t: string) => t.length > 2);
+      const STOPWORDS = ['de', 'du', 'la', 'le', 'les', 'un', 'une', 'des', 'avec', 'pour', 'sur', 'type', 'piece', 'pièce', 'aspect', 'environ', 'couleur', 'forme', 'et', 'ou', 'en', 'dans', 'par'];
+      const normalize = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-      const matches = pieces.filter(p => {
-        const haystack = `${p.designation} ${p.codeArticle} ${p.reference} ${p.refFournisseur}`.toLowerCase();
-        return searchTerms.some((term: string) => haystack.includes(term));
-      }).slice(0, 8);
+      // Termes "forts" : codes/références réellement lus sur la pièce (très fiables)
+      const codeTerms = (data.textesDetectes || [])
+        .map((t: string) => normalize(t).replace(/[^a-z0-9]/g, ''))
+        .filter((t: string) => t.length >= 3);
+
+      // Termes "faibles" : mots descriptifs génériques (couleur, forme...)
+      const descTerms = normalize(data.suggestionRecherche || '')
+        .split(/[^a-z0-9]+/)
+        .filter((t: string) => t.length > 3 && !STOPWORDS.includes(t));
+
+      const scored = pieces.map(p => {
+        // Champs "référence" stricts (comparaison sans espaces/tirets, pour les codes)
+        const codeFields = [p.codeArticle, p.reference, p.refFournisseur, p.codeBarre]
+          .map(v => normalize(v || '').replace(/[^a-z0-9]/g, ''))
+          .filter(Boolean);
+
+        // Texte complet de la fiche (désignation, marque, famille...) pour une recherche plus large
+        const fullTextNorm = normalize(
+          [p.designation, p.marque, p.famille, p.sousFamille, p.reference, p.refFournisseur, p.codeArticle].join(' ')
+        );
+        const fullTextCompact = fullTextNorm.replace(/[^a-z0-9]/g, '');
+
+        let score = 0;
+
+        // Forte correspondance : un code détecté correspond à une référence de la pièce
+        codeTerms.forEach((ct: string) => {
+          codeFields.forEach(cf => {
+            if (cf.includes(ct) || ct.includes(cf)) score += 10;
+          });
+          // Repli : le code apparaît quelque part dans le texte complet de la fiche
+          // (désignation, marque...), même s'il n'est pas dans un champ référence dédié
+          if (fullTextCompact.includes(ct)) score += 8;
+        });
+
+        // Correspondance faible : mot descriptif retrouvé dans le texte complet
+        descTerms.forEach((dt: string) => {
+          if (fullTextNorm.includes(dt)) score += 1;
+        });
+
+        return { piece: p, score };
+      });
+      const matches = scored
+        .filter(s => s.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 8)
+        .map(s => s.piece);
 
       setPhotoScanMatches(matches);
     } catch (err: any) {

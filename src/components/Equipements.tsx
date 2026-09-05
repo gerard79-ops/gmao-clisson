@@ -61,6 +61,7 @@ import EquipmentTreeSelect from './EquipmentTreeSelect';
 import { compressImage } from '../utils/imageCompressor';
 
 interface EquipementsProps {
+  currentUserName: string;
   currentRole: string;
   permissionsMatrix: PermissionsMatrix;
   equipements: Equipement[];
@@ -87,6 +88,7 @@ interface EquipementsProps {
 }
 
 export default function Equipements({
+  currentUserName,
   currentRole,
   permissionsMatrix,
   equipements,
@@ -484,7 +486,7 @@ export default function Equipements({
     fichierTaille: '',
     url: '',
     description: '',
-    auteur: 'Jean Dupont'
+    auteur: currentUserName
   });
 
   // Interactive Timeline States
@@ -1049,7 +1051,7 @@ export default function Equipements({
         fichierTaille: newDocForm.fichierTaille || '1.5 Mo',
         url: newDocForm.url,
         description: newDocForm.description,
-        auteur: newDocForm.auteur || 'Jean Dupont'
+        auteur: newDocForm.auteur || currentUserName
       });
 
       // Reset form
@@ -1060,8 +1062,8 @@ export default function Equipements({
         fichierTaille: '',
         url: '',
         description: '',
-        auteur: 'Jean Dupont'
-      });
+    auteur: currentUserName
+  });
       setIsAddingDoc(false);
     };
 

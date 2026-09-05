@@ -38,6 +38,7 @@ import PhotoAnnotatorModal from './PhotoAnnotatorModal';
 import EquipmentTreeSelect from './EquipmentTreeSelect';
 
 interface RapportInterventionProps {
+  currentUserName: string;
   interventions: Intervention[];
   equipements: Equipement[];
   pieces: Piece[];
@@ -51,6 +52,7 @@ interface RapportInterventionProps {
 }
 
 export default function RapportIntervention({
+  currentUserName,
   interventions,
   equipements,
   pieces,
@@ -343,7 +345,7 @@ if ('touches' in e) {
     const logItem: AuditLog = {
       id: auditLogId,
       timestamp: new Date().toISOString(),
-      utilisateur: `${crOperateur || 'Jean Dupont'} (${userRole})`,
+      utilisateur: `${crOperateur || currentUserName} (${userRole})`,
       action: "Saisie Rapport d'Intervention",
       details: `Clôture de rapport avec statut : ${crStatut}. Temps de travail : ${crMo || 0}H, Arrêt machine : ${crArret || 0}H.`,
       criticite: "moyenne",
