@@ -138,6 +138,7 @@ const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
   const [newUrgence, setNewUrgence] = useState('');
   const [newEffet, setNewEffet] = useState('');
   const [newActivite, setNewActivite] = useState('');
+  const [newOperateur, setNewOperateur] = useState('');
   const [newTechnologie, setNewTechnologie] = useState('');
   const [newCause, setNewCause] = useState('');
   const [newRemede, setNewRemede] = useState('');
@@ -1188,7 +1189,7 @@ const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
 
   // List updates helpers
   const handleAddListOption = (
-    field: 'ateliers' | 'metiers' | 'marques' | 'etats' | 'urgences' | 'effets' | 'activites' | 'technologies' | 'causes' | 'remedes' | 'imputations',
+    field: 'ateliers' | 'metiers' | 'marques' | 'etats' | 'urgences' | 'effets' | 'activites' | 'technologies' | 'causes' | 'remedes' | 'imputations' | 'operateurs',
     value: string,
     setter: (v: string) => void
   ) => {
@@ -1213,7 +1214,7 @@ const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
   };
 
   const handleRemoveListOption = (
-    field: 'ateliers' | 'metiers' | 'marques' | 'etats' | 'urgences' | 'effets' | 'activites' | 'technologies' | 'causes' | 'remedes' | 'imputations',
+    field: 'ateliers' | 'metiers' | 'marques' | 'etats' | 'urgences' | 'effets' | 'activites' | 'technologies' | 'causes' | 'remedes' | 'imputations' | 'operateurs',
     value: string
   ) => {
     if (userRole === 'Technicien') {
@@ -1681,6 +1682,47 @@ const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
                     onClick={() => handleRemoveListOption('activites', act)}
                     disabled={userRole === 'Technicien'}
                     className={`text-red-500 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed`}
+                    title={userRole === 'Technicien' ? "Modification réservée aux Managers" : "Retirer de la liste"}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* OPERATEURS EDITOR */}
+          <div className="card space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-primary-500">
+              Opérateurs / Intervenants
+            </h3>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder={userRole === 'Technicien' ? "Accès restreint aux Managers" : "Nouvel Opérateur..."}
+                value={newOperateur}
+                onChange={e => setNewOperateur(e.target.value)}
+                disabled={userRole === 'Technicien'}
+                className="text-xs disabled:opacity-50 disabled:bg-primary-100 dark:disabled:bg-primary-950/40"
+              />
+              <button
+                onClick={() => handleAddListOption('operateurs', newOperateur, setNewOperateur)}
+                disabled={userRole === 'Technicien'}
+                className="btn-primary py-1 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+
+            <div className="max-h-40 overflow-y-auto space-y-1.5 p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
+              {[...(settings.listes.operateurs || [])].sort((a, b) => a.localeCompare(b)).map(op => (
+                <div key={op} className="flex justify-between items-center text-xs p-1.5 bg-white dark:bg-primary-950 rounded border">
+                  <span className="font-semibold">{op}</span>
+                  <button
+                    onClick={() => handleRemoveListOption('operateurs', op)}
+                    disabled={userRole === 'Technicien'}
+                    className="text-red-500 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
                     title={userRole === 'Technicien' ? "Modification réservée aux Managers" : "Retirer de la liste"}
                   >
                     <Trash2 size={12} />
