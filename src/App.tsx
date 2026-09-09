@@ -1241,7 +1241,24 @@ const handleDeleteCollection = async (collectionName: string): Promise<number> =
     );
   }
 
-  if (isTerrainPortal) {
+if (isTerrainPortal) {
+    if (authLoading) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-slate-100">
+          <Loader2 className="animate-spin h-8 w-8 text-indigo-500 mb-4" />
+          <p className="text-sm font-semibold tracking-wide uppercase text-slate-400">Chargement de la session...</p>
+        </div>
+      );
+    }
+
+    if (!authUser) {
+      return (
+        <Login onLoginSuccess={(email) => {
+          triggerInAppNotification(`Bienvenue, ${email}.`, "success");
+        }} />
+      );
+    }
+
     return (
       <div className={effectiveThemeMode === 'dark' ? 'dark' : ''}>
         <PortailTerrain
@@ -1258,23 +1275,6 @@ const handleDeleteCollection = async (collectionName: string): Promise<number> =
           onAddMouvement={handleAddMouvement}
         />
       </div>
-    );
-  }
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-slate-100">
-        <Loader2 className="animate-spin h-8 w-8 text-indigo-500 mb-4" />
-        <p className="text-sm font-semibold tracking-wide uppercase text-slate-400">Chargement de la session...</p>
-      </div>
-    );
-  }
-
-if (!authUser) {
-    return (
-      <Login onLoginSuccess={(email) => {
-        triggerInAppNotification(`Bienvenue, ${email}.`, "success");
-      }} />
     );
   }
   if (mustChangePassword && authUser) {
