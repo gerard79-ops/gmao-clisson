@@ -1277,6 +1277,23 @@ if (isTerrainPortal) {
       </div>
     );
   }
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-slate-100">
+        <Loader2 className="animate-spin h-8 w-8 text-indigo-500 mb-4" />
+        <p className="text-sm font-semibold tracking-wide uppercase text-slate-400">Chargement de la session...</p>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <Login onLoginSuccess={(email) => {
+        triggerInAppNotification(`Bienvenue, ${email}.`, "success");
+      }} />
+    );
+  }
+
   if (mustChangePassword && authUser) {
     return (
       <ForcePasswordChangeModal
@@ -1285,7 +1302,6 @@ if (isTerrainPortal) {
       />
     );
   }
-
   return (
     <div className={`min-h-screen font-sans bg-primary-100 dark:bg-primary-950 transition-colors duration-300 font-scale-${db.settings.taillePolice} contrast-${db.settings.themeContraste} ${effectiveThemeMode === 'dark' ? 'dark' : ''}`}>
       
