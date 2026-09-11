@@ -40,9 +40,12 @@ import {
   Barcode,
   Boxes,
   Zap,
+  LogOut,
   Pencil
 } from 'lucide-react';
 import { Equipement, Intervention, GlobalSettings, Compteur, Piece, MouvementStock } from '../types';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase';
 import { SaisieVocale } from './SaisieVocale';
 import PhotoAnnotatorModal from './PhotoAnnotatorModal';
 import { ModuleHelp } from './ModuleHelp';
@@ -1544,6 +1547,13 @@ ${diagResult.partsRequired.join(', ')}`,
               </select>
             </div>
           </div>
+          <button
+            onClick={() => signOut(auth)}
+            className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 flex items-center justify-center cursor-pointer transition-colors shrink-0"
+            title="Se déconnecter"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
 
