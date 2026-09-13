@@ -1190,6 +1190,7 @@ const handleDeleteCollection = async (collectionName: string): Promise<number> =
   };
 
   // Navigations linking from Dashboard quick stats
+    const [selectedRapportIdFromDashboard, setSelectedRapportIdFromDashboard] = useState<string | null>(null);
   const handleDashboardNavigate = (targetModule: string, highlightIdOrFilter?: string) => {
     let mod = targetModule as typeof activeModule;
     if (targetModule === 'travaux') mod = 'interventions';
@@ -1224,6 +1225,8 @@ const handleDeleteCollection = async (collectionName: string): Promise<number> =
       } else {
         setInterventionFilter(null);
       }
+    } else if (mod === 'rapport-intervention' && highlightIdOrFilter) {
+      setSelectedRapportIdFromDashboard(highlightIdOrFilter);
     }
   };
 
@@ -1741,6 +1744,7 @@ if (isTerrainPortal) {
 
               {activeModule === 'rapport-intervention' && (
                 <RapportIntervention
+		  initialSelectedId={selectedRapportIdFromDashboard}
                   interventions={db.interventions}
                   currentUserName={currentUserName}
                   equipements={db.equipements}

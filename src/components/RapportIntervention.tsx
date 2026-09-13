@@ -39,6 +39,7 @@ import EquipmentTreeSelect from './EquipmentTreeSelect';
 
 interface RapportInterventionProps {
   currentUserName: string;
+  initialSelectedId?: string | null;
   interventions: Intervention[];
   equipements: Equipement[];
   pieces: Piece[];
@@ -53,6 +54,7 @@ interface RapportInterventionProps {
 
 export default function RapportIntervention({
   currentUserName,
+  initialSelectedId,
   interventions,
   equipements,
   pieces,
@@ -66,6 +68,12 @@ export default function RapportIntervention({
 }: RapportInterventionProps) {
   // Navigation inside component
   const [selectedIntId, setSelectedIntId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialSelectedId) {
+      setSelectedIntId(initialSelectedId);
+    }
+  }, [initialSelectedId]);
   const [isSpontaneousMode, setIsSpontaneousMode] = useState(false);
 
   // Search and lists filters
@@ -86,6 +94,7 @@ export default function RapportIntervention({
   const [crCause, setCrCause] = useState('');
   const [crRemede, setCrRemede] = useState('');
   const [crOperateur, setCrOperateur] = useState('');
+  const [crDate, setCrDate] = useState(new Date().toISOString().split('T')[0]);
   const [crImputation, setCrImputation] = useState('');
   const [crText, setCrText] = useState('');
   const [crMo, setCrMo] = useState('');
@@ -165,34 +174,36 @@ export default function RapportIntervention({
         if (savedDraftStr) {
           try {
             const draft = JSON.parse(savedDraftStr);
-            setCrActivite(draft.crActivite || item.activite || settings.listes.activites[0] || '');
-            setCrTechno(draft.crTechno || item.technologie || settings.listes.technologies[0] || '');
-            setCrCause(draft.crCause || item.cause || settings.listes.causes[0] || '');
-            setCrRemede(draft.crRemede || item.remede || settings.listes.remedes[0] || '');
-            setCrOperateur(draft.crOperateur || item.operateur || settings.listes.operateurs[0] || '');
-            setCrImputation(draft.crImputation || item.imputation || settings.listes.imputations[0] || '');
+            setCrActivite(draft.crActivite || item.activite || '');
+            setCrTechno(draft.crTechno || item.technologie || '');
+            setCrCause(draft.crCause || item.cause || '');
+            setCrRemede(draft.crRemede || item.remede || '');
+            setCrOperateur(draft.crOperateur || item.operateur || currentUserName || '');
+            setCrImputation(draft.crImputation || item.imputation || '');
             setCrText(draft.crText || item.compteRendu || '');
             setCrMo(draft.crMo || item.tempsPasse?.replace(/[^\d.]/g, '') || '');
             setCrArret(draft.crArret || item.tempsArret?.replace(/[^\d.]/g, '') || '');
             setCrStatut(draft.crStatut || (userRole === 'Manager' ? 'Soldé' : 'En attente de validation'));
             setSelectedParts(draft.selectedParts || []);
             setCrPhotoUrl(draft.crPhotoUrl || item.photoUrl || '');
+            setCrDate(draft.crDate || (item.dateCloture ? item.dateCloture.split('T')[0] : new Date().toISOString().split('T')[0]));
           } catch (e) {
             console.error("Failed to parse draft", e);
           }
         } else {
-          setCrActivite(item.activite || settings.listes.activites[0] || '');
-          setCrTechno(item.technologie || settings.listes.technologies[0] || '');
-          setCrCause(item.cause || settings.listes.causes[0] || '');
-          setCrRemede(item.remede || settings.listes.remedes[0] || '');
-          setCrOperateur(item.operateur || settings.listes.operateurs[0] || '');
-          setCrImputation(item.imputation || settings.listes.imputations[0] || '');
+          setCrActivite(item.activite || '');
+          setCrTechno(item.technologie || '');
+          setCrCause(item.cause || '');
+          setCrRemede(item.remede || '');
+          setCrOperateur(item.operateur || currentUserName || '');
+          setCrImputation(item.imputation || '');
           setCrText(item.compteRendu || '');
           setCrMo(item.tempsPasse?.replace(/[^\d.]/g, '') || '');
           setCrArret(item.tempsArret?.replace(/[^\d.]/g, '') || '');
           setCrStatut(userRole === 'Manager' ? 'Soldé' : 'En attente de validation');
           setSelectedParts([]);
           setCrPhotoUrl(item.photoUrl || '');
+          setCrDate(item.dateCloture ? item.dateCloture.split('T')[0] : new Date().toISOString().split('T')[0]);
         }
         setPartSearch('');
         setHasSigned(false);
@@ -309,8 +320,8 @@ if ('touches' in e) {
       tempsPasse: crMo ? `${crMo} H` : '0 H',
       tempsArret: crArret ? `${crArret} H` : '0 H',
       technicienCloture: crOperateur,
-      dateCloture: crStatut === 'Soldé' ? new Date().toISOString() : undefined,
-      photoUrl: crPhotoUrl || undefined
+      dateCloture: new Date(crDate).toISOString(),
+      photoUrl: crPhotoUrl || ''
     };
 
     if (signatureData) payload.signatureTechnicien = signatureData;
@@ -842,10 +853,26 @@ if ('touches' in e) {
                           <span className="text-red-500">*</span>
                         </label>
                         <select required value={crImputation} onChange={e => setCrImputation(e.target.value)}>
+                          <option value="">Sélectionner...</option>
                           {[...settings.listes.imputations].sort((a,b) => a.localeCompare(b)).map(i => (
                             <option key={i} value={i}>{i}</option>
                           ))}
                         </select>
+                      </div>
+
+                      {/* Date d'intervention */}
+                      <div>
+                        <label className="font-semibold text-xs mb-1 flex items-center gap-1.5">
+                          <span>Date d'intervention</span>
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={crDate}
+                          onChange={(e) => setCrDate(e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          required
+                        />
                       </div>
 
                       {/* Opérateur */}
@@ -854,8 +881,7 @@ if ('touches' in e) {
                           <span>Opérateur en charge</span>
                           <span className="text-red-500">*</span>
                         </label>
-                        <select required value={crOperateur} onChange={e => setCrOperateur(e.target.value)}>
-                          <option value="">Sélectionner...</option>
+                        <select required value={crOperateur} onChange={e => setCrOperateur(e.target.value)}>                          <option value="">Sélectionner...</option>
                           {[...settings.listes.operateurs].sort((a,b) => a.localeCompare(b)).map(o => (
                             <option key={o} value={o}>{o}</option>
                           ))}
@@ -887,6 +913,7 @@ if ('touches' in e) {
                       <div>
                         <label className="font-semibold text-xs mb-1">Type d'activité</label>
                         <select value={crActivite} onChange={e => setCrActivite(e.target.value)}>
+                          <option value="">Sélectionner...</option>
                           {settings.listes.activites.map(act => (
                             <option key={act} value={act}>{act}</option>
                           ))}
@@ -897,6 +924,7 @@ if ('touches' in e) {
                       <div>
                         <label className="font-semibold text-xs mb-1">Technologie ciblée</label>
                         <select value={crTechno} onChange={e => setCrTechno(e.target.value)}>
+                          <option value="">Sélectionner...</option>
                           {settings.listes.technologies.map(t => (
                             <option key={t} value={t}>{t}</option>
                           ))}
@@ -907,6 +935,7 @@ if ('touches' in e) {
                       <div>
                         <label className="font-semibold text-xs mb-1">Cause de défaillance</label>
                         <select value={crCause} onChange={e => setCrCause(e.target.value)}>
+                          <option value="">Sélectionner...</option>
                           {settings.listes.causes.map(c => (
                             <option key={c} value={c}>{c}</option>
                           ))}
@@ -917,6 +946,7 @@ if ('touches' in e) {
                       <div>
                         <label className="font-semibold text-xs mb-1">Remède appliqué</label>
                         <select value={crRemede} onChange={e => setCrRemede(e.target.value)}>
+                          <option value="">Sélectionner...</option>
                           {settings.listes.remedes.map(r => (
                             <option key={r} value={r}>{r}</option>
                           ))}

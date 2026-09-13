@@ -9,6 +9,10 @@ import {
   Clock, 
   CheckCircle, 
   User, 
+  Camera,
+  Upload,
+  Trash2,
+  Eye,
   MapPin, 
   Cpu, 
   Wrench, 
@@ -22,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Equipement, Intervention, GlobalSettings, Utilisateur } from '../types';
 import EquipmentTreeSelect from './EquipmentTreeSelect';
+import { compressImage } from '../utils/imageCompressor';
 import { auth } from '../firebase';
 
 interface PortailAtelierDIProps {
@@ -48,6 +53,7 @@ export default function PortailAtelierDI({
   const [urgency, setUrgency] = useState('Moyenne (48h)');
   const [description, setDescription] = useState('');
   const [codeDefaut, setCodeDefaut] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
   
   // History list and modal states
   const [searchQuery, setSearchQuery] = useState('');
@@ -163,7 +169,8 @@ export default function PortailAtelierDI({
       description: description.trim(),
       statut: 'En attente' as const,
       source: 'Portail Atelier DI',
-      codeDefaut: codeDefaut.trim() || ''
+      codeDefaut: codeDefaut.trim() || '',
+      photoUrl: photoUrl || ''
     };
     try {
       await onAddIntervention(payload);
@@ -171,6 +178,7 @@ export default function PortailAtelierDI({
       setDescription('');
       setCodeDefaut('');
       setDestinataire('');
+      setPhotoUrl('');
       
       // Trigger success screen/toast
       setSubmitting(false);
@@ -418,6 +426,92 @@ export default function PortailAtelierDI({
                   </p>
                 </div>
 
+                {/* PHOTO DE LA PANNE */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-primary-500 dark:text-primary-400 mb-2 flex items-center gap-1.5">
+                    <Camera size={12} className="text-indigo-500" />
+                    Photo de la panne (Optionnel)
+                  </label>
+
+                  <div className="p-3 bg-primary-50 dark:bg-primary-950 rounded-xl border border-primary-200 dark:border-primary-800">
+                    {photoUrl ? (
+                      <div className="relative group w-full h-40 rounded-xl overflow-hidden border border-primary-200 dark:border-primary-800 bg-black flex items-center justify-center">
+                        <img
+                          src={photoUrl}
+                          alt="Photo de la panne"
+                          className="max-w-full max-h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition duration-200 flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const win = window.open();
+                              if (win) {
+                                win.document.write(`<img src="${photoUrl}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
+                              }
+                            }}
+                            className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white transition text-xs font-bold flex items-center gap-1"
+                          >
+                            <Eye size={12} /> Voir
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPhotoUrl('')}
+                            className="p-1.5 bg-red-600/80 hover:bg-red-600 rounded-lg text-white transition text-xs font-bold flex items-center gap-1"
+                          >
+                            <Trash2 size={12} /> Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        <label className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 text-xs py-2.5 px-3 bg-indigo-500 hover:bg-indigo-600 text-white cursor-pointer rounded-lg shadow-sm transition font-bold">
+                          <Camera size={13} />
+                          <span>Prendre une photo</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                try {
+                                  const compressed = await compressImage(file, 1.0);
+                                  setPhotoUrl(compressed);
+                                } catch (error: any) {
+                                  alert("Erreur lors du traitement de la photo : " + (error.message || error));
+                                }
+                              }
+                            }}
+                          />
+                        </label>
+                        <label className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 text-xs py-2.5 px-3 bg-white hover:bg-primary-50 text-primary-700 dark:bg-primary-800 dark:hover:bg-primary-750 dark:text-primary-200 border border-primary-200 dark:border-primary-700 cursor-pointer rounded-lg shadow-sm transition font-bold">
+                          <Upload size={13} className="text-indigo-500" />
+                          <span>Importer un fichier</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                try {
+                                  const compressed = await compressImage(file, 1.0);
+                                  setPhotoUrl(compressed);
+                                } catch (error: any) {
+                                  alert("Erreur lors du traitement de la photo : " + (error.message || error));
+                                }
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* DESCRIPTION */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-primary-500 dark:text-primary-400 mb-2">
@@ -660,6 +754,21 @@ export default function PortailAtelierDI({
                     <span className="text-primary-400 font-bold uppercase text-[9px] block mb-1">Type Panne</span>
                     <span className="font-medium text-primary-800 dark:text-white">{selectedDi.typeProbleme}</span>
                   </div>
+                  {selectedDi.photoUrl && (
+                    <div className="col-span-2">
+                      <span className="text-primary-400 font-bold uppercase text-[9px] block mb-1">Photo jointe</span>
+                      <img
+                        src={selectedDi.photoUrl}
+                        alt="Photo de la panne"
+                        className="w-full max-h-64 object-contain rounded-xl border border-primary-200 dark:border-primary-800 bg-black cursor-pointer"
+                        referrerPolicy="no-referrer"
+                        onClick={() => {
+                          const win = window.open();
+                          if (win) win.document.write(`<img src="${selectedDi.photoUrl}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
+                        }}
+                      />
+                    </div>
+                  )}
                   {selectedDi.codeDefaut && (
                     <div>
                       <span className="text-primary-400 font-bold uppercase text-[9px] block mb-1">Code défaut / erreur</span>

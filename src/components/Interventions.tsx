@@ -332,12 +332,12 @@ export default function Interventions({
           console.error("Failed to parse draft on manual open", e);
         }
       } else {
-        setCrActivite(item.activite || settings.listes.activites[0] || '');
-        setCrTechno(item.technologie || settings.listes.technologies[0] || '');
-        setCrCause(item.cause || settings.listes.causes[0] || '');
-        setCrRemede(item.remede || settings.listes.remedes[0] || '');
-        setCrOperateur(item.operateur || settings.listes.operateurs[0] || '');
-        setCrImputation(item.imputation || settings.listes.imputations[0] || '');
+        setCrActivite(item.activite || '');
+        setCrTechno(item.technologie || '');
+        setCrCause(item.cause || '');
+        setCrRemede(item.remede || '');
+        setCrOperateur(item.operateur || currentUserName || '');
+        setCrImputation(item.imputation || '');
         setCrText(item.compteRendu || '');
         setCrMo(item.tempsPasse?.replace(/[^\d.]/g, '') || '');
         setCrArret(item.tempsArret?.replace(/[^\d.]/g, '') || '');
@@ -1637,6 +1637,7 @@ export default function Interventions({
                           ) : null}
                         </label>
                         <select required value={crActivite} onChange={e => setCrActivite(e.target.value)}>
+                          <option value="">Sélectionner...</option>
                           {[...settings.listes.activites].sort((a,b) => a.localeCompare(b)).map(a => <option key={a} value={a}>{a}</option>)}
                         </select>
                       </div>
@@ -1650,6 +1651,7 @@ export default function Interventions({
                           ) : null}
                         </label>
                         <select required value={crTechno} onChange={e => setCrTechno(e.target.value)}>
+                          <option value="">Sélectionner...</option>
                           {[...settings.listes.technologies].sort((a,b) => a.localeCompare(b)).map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                       </div>
@@ -1663,6 +1665,7 @@ export default function Interventions({
                           ) : null}
                         </label>
                         <select required value={crCause} onChange={e => setCrCause(e.target.value)}>
+                          <option value="">Sélectionner...</option>
                           {[...settings.listes.causes].sort((a,b) => a.localeCompare(b)).map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
@@ -1676,6 +1679,7 @@ export default function Interventions({
                           ) : null}
                         </label>
                         <select required value={crRemede} onChange={e => setCrRemede(e.target.value)}>
+                          <option value="">Sélectionner...</option>
                           {[...settings.listes.remedes].sort((a,b) => a.localeCompare(b)).map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                       </div>

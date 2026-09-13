@@ -985,6 +985,7 @@ export default function Dashboard({
                           <th>Équipement</th>
                           <th>Demandeur</th>
                           <th>Destinataire</th>
+                          <th>Date</th>
                           <th>Atelier</th>
                           <th>Urgence</th>
                           <th className="text-right">Actions</th>
@@ -1015,6 +1016,9 @@ export default function Dashboard({
                                     <span className="text-primary-400 text-xs italic">Non précisé</span>
                                   )}
                                 </td>
+                                <td className="text-primary-500 dark:text-primary-400 text-xs whitespace-nowrap">
+                                  {new Date(di.dateCreation).toLocaleDateString('fr-FR')}
+                                </td>
                                 <td>
                                   <span className="px-2 py-0.5 rounded text-xs font-medium bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300">
                                     {di.atelier}
@@ -1031,11 +1035,11 @@ export default function Dashboard({
                                 </td>
                                 <td className="text-right">
                                   <button
-                                    onClick={() => onNavigate('interventions', di.id)}
+                                    onClick={() => onNavigate('rapport-intervention', di.id)}
                                     className="btn-icon bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 hover:bg-accent-orange hover:text-white"
-                                    title="Traiter cette demande"
+                                    title="Intervenir directement (rapport)"
                                   >
-                                    <ChevronRight size={14} />
+                                    <Wrench size={14} />
                                   </button>
                                 </td>
                               </tr>
@@ -1078,7 +1082,7 @@ export default function Dashboard({
                       <tbody>
                         {topCritical.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="text-center text-primary-500 py-6 text-sm">
+                            <td colSpan={7} className="text-center text-primary-500 py-6 text-sm">
                               Aucune panne curative clôturée enregistrée sur le parc.
                             </td>
                           </tr>
