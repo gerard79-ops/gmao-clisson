@@ -125,6 +125,7 @@ const canCreerModifierPiece = hasPermission(permissionsMatrix, currentRole, 'mag
   const [formSeuil, setFormSeuil] = useState<number>(1);
   const [formPrix, setFormPrix] = useState<number>(0);
   const [formEqLies, setFormEqLies] = useState<string[]>([]);
+  const [eqSearchQuery, setEqSearchQuery] = useState('');
   const [formPhoto, setFormPhoto] = useState<string | null>(null);
   const [formPhotoUrl, setFormPhotoUrl] = useState('');
 
@@ -385,6 +386,7 @@ const canCreerModifierPiece = hasPermission(permissionsMatrix, currentRole, 'mag
     setFormSeuil(selectedPiece.seuil || 1);
     setFormPrix(selectedPiece.prix || 0);
     setFormEqLies(selectedPiece.equipementsLies || []);
+    setEqSearchQuery('');
     setFormPhoto(selectedPiece.photoUrl || null);
     setFormPhotoUrl(selectedPiece.photoUrl && selectedPiece.photoUrl.startsWith('http') ? selectedPiece.photoUrl : '');
     setIsEditing(true);
@@ -406,6 +408,7 @@ const canCreerModifierPiece = hasPermission(permissionsMatrix, currentRole, 'mag
     setFormSeuil(1);
     setFormPrix(0);
     setFormEqLies([]);
+    setEqSearchQuery('');
     setFormPhoto(null);
     setFormPhotoUrl('');
     setIsEditing(false);
@@ -434,7 +437,7 @@ const canCreerModifierPiece = hasPermission(permissionsMatrix, currentRole, 'mag
       prix: Number(formPrix),
       codeBarre: barcode,
       equipementsLies: formEqLies,
-      photoUrl: formPhoto || undefined
+      photoUrl: formPhoto || ''
     };
 
     if (isEditing && selectedPieceId) {
@@ -1406,18 +1409,52 @@ const handleDelete = () => {
                   {/* Equipment checkboxes compatibility */}
                   <div>
                     <label className="font-bold mb-2 block">Machines compatibles :</label>
+
+                    {formEqLies.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {formEqLies.map(nom => (
+                          <span
+                            key={nom}
+                            className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 rounded-lg border border-indigo-200 dark:border-indigo-800"
+                          >
+                            {nom}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleEq(nom)}
+                              className="text-indigo-400 hover:text-red-500 transition"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <input
+                      type="text"
+                      placeholder="Rechercher une machine..."
+                      value={eqSearchQuery}
+                      onChange={(e) => setEqSearchQuery(e.target.value)}
+                      className="w-full mb-1.5 text-xs"
+                    />
+
                     <div className="max-h-36 overflow-y-auto space-y-1.5 p-2 bg-white dark:bg-primary-950 border rounded-lg">
-                      {equipements.map(eq => (
-                        <label key={eq.id} className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={formEqLies.includes(eq.nom)}
-                            onChange={() => handleToggleEq(eq.nom)}
-                            className="accent-accent-orange"
-                          />
-                          <span>{eq.nom}</span>
-                        </label>
-                      ))}
+                      {equipements
+                        .filter(eq => eq.nom.toLowerCase().includes(eqSearchQuery.toLowerCase()))
+                        .map(eq => (
+                          <label key={eq.id} className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={formEqLies.includes(eq.nom)}
+                              onChange={() => handleToggleEq(eq.nom)}
+                              className="accent-accent-orange"
+                            />
+                            <span>{eq.nom}</span>
+                          </label>
+                        ))}
+                      {equipements.filter(eq => eq.nom.toLowerCase().includes(eqSearchQuery.toLowerCase())).length === 0 && (
+                        <p className="text-[11px] text-primary-400 italic px-1">Aucune machine trouvée.</p>
+                      )}
                     </div>
                   </div>
 

@@ -499,6 +499,7 @@ export default function Equipements({
   // Search and status filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Opérationnel' | 'HS'>('all');
+  const [advancedFiltersExpanded, setAdvancedFiltersExpanded] = useState(false);
   const [criticalityFilter, setCriticalityFilter] = useState<'all' | 'critique' | 'normal'>('all');
   const [atelierFilter, setAtelierFilter] = useState<string>('all');
 
@@ -3445,6 +3446,20 @@ onClick={(e) => {
                 Arborescence Parc
               </h2>
             </div>
+            <button
+              type="button"
+              onClick={() => setAdvancedFiltersExpanded(v => !v)}
+              className={`text-[10px] font-bold flex items-center gap-1 px-2 py-1 rounded-lg transition ${
+                isFiltering
+                  ? 'text-accent-orange bg-accent-orange/10'
+                  : 'text-primary-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-800'
+              }`}
+            >
+              <SlidersHorizontal size={11} />
+              Filtres
+              {isFiltering && <span className="w-1.5 h-1.5 rounded-full bg-accent-orange" />}
+              <ChevronRight size={10} className={`transition-transform ${advancedFiltersExpanded ? 'rotate-90' : ''}`} />
+            </button>
             {isFiltering && (
               <button
                 type="button"
@@ -3490,6 +3505,7 @@ onClick={(e) => {
           )}
 
           {/* SEARCH & ADVANCED FILTER CONTROLS */}
+          {advancedFiltersExpanded && (
           <div className="space-y-3 bg-primary-50/50 dark:bg-primary-900/20 p-3 rounded-xl border border-primary-200/50 dark:border-primary-700/50">
             {/* Search Input */}
             <div className="relative">
@@ -3566,6 +3582,7 @@ onClick={(e) => {
               </select>
             </div>
           </div>
+          )}
 
           <div 
             className="arborescence-tree-container space-y-1 flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin"
@@ -4325,6 +4342,17 @@ onClick={(e) => {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActiveTab('pieces-compatibles')}
+                  className={`px-4 py-2 font-display text-sm font-bold border-b-2 transition ${
+                    activeTab === 'pieces-compatibles'
+                      ? 'border-accent-orange text-accent-orange'
+                      : 'border-transparent text-primary-450 hover:text-primary-600 dark:hover:text-primary-200'
+                  }`}
+                >
+                  Pièces Compatibles ({pieces.filter(p => p.equipementsLies && p.equipementsLies.includes(selectedEq.nom)).length})
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveTab('predictif')}
                   className={`px-4 py-2 font-display text-sm font-bold border-b-2 transition flex items-center gap-1.5 ${
                     activeTab === 'predictif'
@@ -4510,6 +4538,53 @@ onClick={(e) => {
               {activeTab === 'documents' && renderDocumentsGedTab(selectedEq)}
 
               {activeTab === 'consommations' && renderConsommationsTab(selectedEq)}
+
+              {activeTab === 'pieces-compatibles' && (
+                <div className="card">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-primary-800 dark:text-primary-200 border-b border-primary-100 dark:border-primary-800 pb-2 mb-4 flex items-center gap-2">
+                    <Package size={16} className="text-accent-orange" />
+                    Pièces de rechange compatibles
+                  </h3>
+                  {(() => {
+                    const compatiblePieces = pieces.filter(p => p.equipementsLies && p.equipementsLies.includes(selectedEq.nom));
+                    if (compatiblePieces.length === 0) {
+                      return (
+                        <p className="text-xs text-primary-400 italic py-6 text-center">
+                          Aucune pièce n'est actuellement associée à cet équipement. Vous pouvez lier des pièces depuis Magasin & Stocks → Modifier l'article → Machines compatibles.
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="data-table w-full">
+                          <thead>
+                            <tr>
+                              <th>Désignation</th>
+                              <th>Code Article</th>
+                              <th>Emplacement</th>
+                              <th className="text-right">Stock</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {compatiblePieces.map(p => (
+                              <tr key={p.id}>
+                                <td className="font-semibold text-primary-800 dark:text-white">{p.designation}</td>
+                                <td className="font-mono text-primary-500">{p.codeArticle || '-'}</td>
+                                <td className="text-primary-500">{p.emplacement || '-'}</td>
+                                <td className="text-right">
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${p.quantite <= p.seuil ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'}`}>
+                                    {p.quantite}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
 
               {activeTab === 'predictif' && renderPredictiveTab(selectedEq)}
             </div>
@@ -5636,7 +5711,10 @@ onClick={(e) => {
       {contextMenu && contextMenu.visible && (
         <div
           className="fixed bg-white dark:bg-primary-900 border border-primary-200 dark:border-primary-800 rounded-lg shadow-xl py-1 z-50 w-56 text-xs divide-y divide-primary-100 dark:divide-primary-800 text-left"
-          style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+          style={{
+            top: `${Math.max(8, Math.min(contextMenu.y, (typeof window !== 'undefined' ? window.innerHeight : contextMenu.y + 320) - 320))}px`,
+            left: `${Math.max(8, Math.min(contextMenu.x, (typeof window !== 'undefined' ? window.innerWidth : contextMenu.x + 224) - 224))}px`
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-3 py-1.5 font-bold text-primary-500 dark:text-primary-400 border-b border-primary-100 dark:border-primary-800 truncate uppercase tracking-wider text-[10px]">
@@ -5883,7 +5961,7 @@ onClick={(e) => {
             return new Date(b.dateCreation).getTime() - new Date(a.dateCreation).getTime();
           })[0];
 
-          const topPos = Math.min(hoveredEq.y, typeof window !== 'undefined' ? window.innerHeight - 240 : hoveredEq.y);
+          const topPos = Math.max(8, Math.min(hoveredEq.y, typeof window !== 'undefined' ? window.innerHeight - 340 : hoveredEq.y));
           
           let statusColor = 'bg-emerald-500 text-emerald-800 dark:text-emerald-300';
           let statusBg = 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900';

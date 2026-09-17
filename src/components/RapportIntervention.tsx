@@ -464,30 +464,24 @@ if ('touches' in e) {
   const techSuggestions = getTechnicianSuggestions();
 
   return (
-    <div className="space-y-6 animate-fade-in" id="rapport-intervention-module">
+    <div className="space-y-2 animate-fade-in flex flex-col" id="rapport-intervention-module" style={{ height: 'calc(100vh - 128px)' }}>
       
       {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-primary-900 p-5 rounded-2xl border border-primary-200 dark:border-primary-800 shadow-xs">
-        <div className="space-y-1">
-          <h2 className="text-xl font-display font-black text-primary-900 dark:text-white flex items-center gap-2">
-            <PenTool className="text-accent-orange animate-pulse" size={22} />
-            Saisie de Rapport d'Intervention Rapide
-          </h2>
-          <p className="text-xs text-primary-500 dark:text-primary-400 font-semibold leading-relaxed">
-            Rédigez ou dictez vos rapports d'intervention directement depuis cette interface. Mettez à jour vos pièces consommées en temps réel.
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-3 bg-white dark:bg-primary-900 px-4 py-2 rounded-xl border border-primary-200 dark:border-primary-800 shadow-xs shrink-0">
+        <h2 className="text-sm font-display font-bold text-primary-900 dark:text-white flex items-center gap-1.5">
+          <PenTool className="text-accent-orange" size={16} />
+          Saisie de Rapport d'Intervention
+        </h2>
 
         {onNavigateToModule && (
           <button
             onClick={() => onNavigateToModule('dashboard')}
-            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40 px-3.5 py-2 rounded-xl border border-indigo-200/50 dark:border-indigo-800/50 cursor-pointer self-start md:self-auto shrink-0 transition"
+            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40 px-3 py-1.5 rounded-lg border border-indigo-200/50 dark:border-indigo-800/50 cursor-pointer shrink-0 transition"
           >
             Retour au Tableau de Bord
           </button>
         )}
       </div>
-
       {showSuccessScreen ? (
         /* SUCCESS FEEDBACK SCREEN */
         <motion.div
@@ -563,10 +557,10 @@ if ('touches' in e) {
         </motion.div>
       ) : (
         /* MAIN WORKSPACE */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
           
           {/* LEFT PANEL: SELECTOR LIST */}
-          <div className="lg:col-span-4 space-y-4">
+          <div className="lg:col-span-4 min-h-0 overflow-y-auto pr-1">
             
             <div className="bg-white dark:bg-primary-900 p-4 rounded-2xl border border-primary-200 dark:border-primary-800 shadow-xs space-y-4">
               
@@ -694,7 +688,7 @@ if ('touches' in e) {
           </div>
 
           {/* RIGHT PANEL: REPORT FORM */}
-          <div className="lg:col-span-8">
+          <div className="lg:col-span-8 min-h-0 overflow-y-auto pr-1">
             {!selectedIntId && !isSpontaneousMode ? (
               <div className="bg-white dark:bg-primary-900 border border-primary-200 dark:border-primary-800 rounded-2xl p-12 text-center flex flex-col items-center justify-center space-y-4 h-full min-h-[400px]">
                 <PenTool className="text-primary-300 dark:text-primary-700 animate-bounce" size={48} />
